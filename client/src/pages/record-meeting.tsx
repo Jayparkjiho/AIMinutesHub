@@ -590,11 +590,9 @@ export default function RecordMeeting() {
     }
   };
   
-  // Handle save recording
+  // Handle save recording - same pattern as processUploadedFile
   const handleSaveRecording = async () => {
-    console.log("Process Recording clicked! audioBlob:", audioBlob);
     if (!audioBlob) {
-      console.log("Missing audioBlob");
       toast({
         title: "No recording found",
         description: "Please record audio first",
@@ -605,70 +603,44 @@ export default function RecordMeeting() {
     
     try {
       setIsProcessing(true);
-      setProcessingProgress(0);
+      setProcessingProgress(10);
+      
+      // Create meeting first
+      await indexedDBStorage.init();
+      const meetingData = {
+        title: title || "Untitled Meeting",
+        date: new Date().toISOString(),
+        duration: recordingTime,
+        tags: tags,
+        userId: 1,
+        notes: notes || ""
+      };
+      
+      const savedMeeting = await indexedDBStorage.saveMeeting(meetingData);
+      setMeetingId(savedMeeting.id);
       
       setProcessingProgress(20);
       
-      // Transcribe audio using OpenAI
+      // Transcribe audio
       const formData = new FormData();
       formData.append("audio", audioBlob, "recording.wav");
       
-      setProcessingProgress(40);
       const transcribeResponse = await fetch('/api/transcribe-audio', {
         method: 'POST',
         body: formData
       });
-      const transcribeResult = await transcribeResponse.json();
       
       if (!transcribeResponse.ok) {
-        throw new Error(transcribeResult.message || 'Failed to transcribe audio');
+        throw new Error('Failed to transcribe audio');
       }
       
-      setProcessingProgress(60);
+      const transcribeResult = await transcribeResponse.json();
+      setTranscriptText(transcribeResult.text);
       
-      // Generate title from transcript
-      const titleResponse = await apiRequest("POST", "/api/meetings/generate-title-text", {
-        transcript: transcribeResult.text
-      });
+      setProcessingProgress(50);
       
-      setProcessingProgress(70);
-      
-      // Generate summary from transcript
-      const summaryResponse = await apiRequest("POST", "/api/meetings/generate-summary-text", {
-        transcript: transcribeResult.text
-      });
-      
-      setProcessingProgress(80);
-      
-      // Generate action items from transcript
-      const actionsResponse = await apiRequest("POST", "/api/meetings/generate-actions-text", {
-        transcript: transcribeResult.text
-      });
-      
-      setProcessingProgress(90);
-      
-      // Separate speakers
-      const separateResponse = await apiRequest("POST", "/api/meetings/separate-speakers", {
-        transcript: transcribeResult.text
-      });
-      
-      // Save meeting data to IndexedDB
-      const meetingData = {
-        title: (titleResponse as any).title || title || "Untitled Meeting", 
-        date: new Date().toISOString(),
-        duration: Math.round(transcribeResult.duration || recordingTime),
-        tags: tags,
-        userId: 1,
-        transcript: (separateResponse as any).separatedTranscript || transcribeResult.text,
-        summary: (summaryResponse as any).summary,
-        actionItems: (actionsResponse as any).actionItems || [],
-        participants: [],
-        notes: notes || ""
-      };
-      
-      console.log("Fresh meeting data:", meetingData);
-      // Use saveMeeting to create new meeting in IndexedDB
-      const savedMeeting = await indexedDBStorage.saveMeeting(meetingData);
+      // Generate AI analysis
+      await generateAIAnalysis(transcribeResult.text, savedMeeting.id);
       
       setProcessingProgress(100);
       
@@ -682,10 +654,6 @@ export default function RecordMeeting() {
       setTitle("");
       setTags([]);
       setNotes("");
-      setMeetingId(null);
-      
-      // Refresh meetings list
-      await queryClient.invalidateQueries({ queryKey: ["/api/meetings"] });
       
     } catch (error: any) {
       console.error("Error processing recording:", error);
