@@ -24,14 +24,19 @@ export async function transcribeAudio(audioBuffer: Buffer, originalName?: string
     let extension = '.mp3';
     if (originalName) {
       const ext = path.extname(originalName).toLowerCase();
+      console.log('Original file name:', originalName, 'Extension:', ext);
       if (['.flac', '.m4a', '.mp3', '.mp4', '.mpeg', '.mpga', '.oga', '.ogg', '.wav', '.webm'].includes(ext)) {
         extension = ext;
       }
     }
     
+    console.log('Using extension:', extension);
+    
     // Create a temporary file with correct extension
     const fileName = `audio_${uuidv4()}${extension}`;
     tempFilePath = path.join(tempDir, fileName);
+    
+    console.log('Created temp file:', tempFilePath);
     
     // Write buffer to temporary file
     fs.writeFileSync(tempFilePath, audioBuffer);
