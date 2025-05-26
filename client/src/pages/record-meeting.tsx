@@ -347,7 +347,7 @@ export default function RecordMeeting() {
             
             toast({
               title: "AI 분석 완료",
-              description: "요약과 액션 아이템이 생성되어 저장되었습니다.",
+              description: "요약과 액션 아이템이 생성되어 저장되었습니다. 상세보기에서 확인하세요.",
             });
           }
         } catch (updateError) {
