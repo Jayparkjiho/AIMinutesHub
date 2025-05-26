@@ -158,3 +158,27 @@ export async function generateMeetingTitle(transcript: string): Promise<string> 
     throw new Error(`Failed to generate meeting title: ${error.message}`);
   }
 }
+
+// Separate speakers in transcript
+export async function separateSpeakers(transcript: string): Promise<string> {
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o", // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
+      messages: [
+        {
+          role: "system",
+          content: "전사 내용을 분석해서 화자를 구분해주세요. 대화의 내용과 문맥을 보고 서로 다른 발언자를 식별하여 '화자 1:', '화자 2:' 등으로 구분해서 작성하세요. 원본 내용은 그대로 유지하고 화자 구분만 추가하세요."
+        },
+        {
+          role: "user",
+          content: `다음 전사 내용에서 화자를 구분해주세요:\n\n${transcript}`
+        }
+      ],
+    });
+
+    return response.choices[0].message.content || transcript;
+  } catch (error: any) {
+    console.error("Error separating speakers:", error);
+    return transcript;
+  }
+}

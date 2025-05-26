@@ -11,6 +11,7 @@ import { useIndexedDBMeetings } from "@/hooks/use-indexeddb";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { indexedDBStorage } from "@/lib/indexeddb";
 
 export default function RecordMeeting() {
   const [location, navigate] = useLocation();
@@ -35,6 +36,8 @@ export default function RecordMeeting() {
   const [generatedSummary, setGeneratedSummary] = useState("");
   const [generatedActionItems, setGeneratedActionItems] = useState<any[]>([]);
   const [isGeneratingAnalysis, setIsGeneratingAnalysis] = useState(false);
+  const [separatedTranscript, setSeparatedTranscript] = useState("");
+  const [isSeparatingSpeakers, setIsSeparatingSpeakers] = useState(false);
   
   const {
     audioBlob,
@@ -368,6 +371,84 @@ export default function RecordMeeting() {
       });
     } finally {
       setIsGeneratingAnalysis(false);
+    }
+  };
+
+  // Separate speakers in transcript
+  const separateSpeakers = async (transcript: string) => {
+    if (!transcript.trim()) return;
+    
+    setIsSeparatingSpeakers(true);
+    try {
+      const response = await fetch('/api/meetings/separate-speakers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ transcript })
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setSeparatedTranscript(data.separatedTranscript);
+        
+        toast({
+          title: "화자 분리 완료",
+          description: "전사 내용에서 화자가 구분되었습니다.",
+        });
+      }
+    } catch (error) {
+      console.error("Error separating speakers:", error);
+      toast({
+        title: "화자 분리 오류",
+        description: "화자 분리 중 오류가 발생했습니다.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSeparatingSpeakers(false);
+    }
+  };
+
+  // Apply AI action items to new action items
+  const applyAIActionItems = () => {
+    if (generatedActionItems.length === 0) return;
+    
+    // Add AI generated action items to the meeting
+    if (meetingId) {
+      generatedActionItems.forEach(async (aiItem) => {
+        const newActionItem = {
+          text: aiItem.text,
+          assignee: aiItem.assignee || "",
+          dueDate: aiItem.dueDate || ""
+        };
+        
+        try {
+          await indexedDBStorage.init();
+          const existingMeeting = await indexedDBStorage.getMeeting(meetingId);
+          
+          if (existingMeeting) {
+            const newActionItemWithId = {
+              id: `action_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+              text: newActionItem.text,
+              completed: false,
+              assignee: newActionItem.assignee || undefined,
+              dueDate: newActionItem.dueDate || undefined,
+            };
+            
+            const updatedMeeting = {
+              ...existingMeeting,
+              actionItems: [...(existingMeeting.actionItems || []), newActionItemWithId]
+            };
+            
+            await indexedDBStorage.updateMeeting(meetingId, updatedMeeting);
+          }
+        } catch (error) {
+          console.error("Error applying AI action item:", error);
+        }
+      });
+      
+      toast({
+        title: "AI 액션 아이템 적용",
+        description: `${generatedActionItems.length}개의 AI 액션 아이템이 회의에 추가되었습니다.`,
+      });
     }
   };
 

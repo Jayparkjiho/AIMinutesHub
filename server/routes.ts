@@ -381,6 +381,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Separate speakers in transcript
+  app.post("/api/meetings/separate-speakers", async (req: Request, res: Response) => {
+    try {
+      const { transcript } = req.body;
+      
+      if (!transcript) {
+        return res.status(400).json({ error: "Transcript is required" });
+      }
+
+      const { separateSpeakers } = await import("./openai.js");
+      const separatedTranscript = await separateSpeakers(transcript);
+      
+      res.json({ separatedTranscript });
+    } catch (error: any) {
+      console.error("Error separating speakers:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Send email (mock endpoint)
   app.post("/api/email/send", async (req: Request, res: Response) => {
     try {
