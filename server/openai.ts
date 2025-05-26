@@ -58,19 +58,12 @@ export async function transcribeAudio(audioBuffer: Buffer, originalName?: string
     
     // Check for 3GP4 signature: 66747970 33677034 (ftyp3gp4)
     if (headerHex.includes('66747970') && headerHex.includes('33677034')) {
-      console.log('Detected 3GP4 format, changing extension to .mp4');
-      // Create new file with mp4 extension
-      const mp4FileName = fileName.replace(/\.[^.]+$/, '.mp4');
-      const mp4TempFilePath = path.join(tempDir, mp4FileName);
-      
-      // Copy file with new extension
-      fs.copyFileSync(tempFilePath, mp4TempFilePath);
-      
-      // Delete old file and update path
-      fs.unlinkSync(tempFilePath);
-      tempFilePath = mp4TempFilePath;
-      
-      console.log('Converted to:', tempFilePath);
+      console.log('Detected 3GP4 format - this format is not supported by OpenAI');
+      // Clean up and throw specific error for 3GP files
+      if (fs.existsSync(tempFilePath)) {
+        fs.unlinkSync(tempFilePath);
+      }
+      throw new Error('업로드하신 파일은 3GP 형식입니다. 지원되는 형식(MP3, WAV, M4A, MP4 등)으로 변환한 후 다시 업로드해주세요. 또는 텍스트로 직접 입력하실 수도 있습니다.');
     }
 
     // Create a readable stream for OpenAI with explicit filename
