@@ -22,6 +22,7 @@ function Router() {
       <Route path="/meetings/:id" component={MeetingDetail} />
       <Route path="/meetings/:id/email" component={EmailSender} />
       <Route path="/meetings" component={AllMeetings} />
+      <Route path="/email-sender" component={EmailSender} />
       <Route path="/templates" component={TemplateManager} />
       {/* Fallback to 404 */}
       <Route component={NotFound} />
