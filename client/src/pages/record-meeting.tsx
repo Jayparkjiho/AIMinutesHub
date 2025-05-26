@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -41,6 +41,9 @@ export default function RecordMeeting() {
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingProgress, setProcessingProgress] = useState(0);
+  const [showTemplateModal, setShowTemplateModal] = useState(false);
+  const [pendingMeetingId, setPendingMeetingId] = useState<number | null>(null);
+  const [emailTemplates, setEmailTemplates] = useState<EmailTemplate[]>([]);
   
   const { toast } = useToast();
   const [, setLocation] = useLocation();
@@ -54,6 +57,25 @@ export default function RecordMeeting() {
     stopRecording,
     resetRecording
   } = useAudioRecorder();
+
+  // 컴포넌트 마운트 시 이메일 템플릿 로드
+  useEffect(() => {
+    const loadTemplates = async () => {
+      await indexedDBStorage.init();
+      const templates = await indexedDBStorage.getEmailTemplates();
+      if (templates.length === 0) {
+        // 기본 템플릿이 없으면 생성
+        const defaultTemplates = EmailService.getDefaultTemplates();
+        for (const template of defaultTemplates) {
+          await indexedDBStorage.saveEmailTemplate(template);
+        }
+        setEmailTemplates(defaultTemplates);
+      } else {
+        setEmailTemplates(templates);
+      }
+    };
+    loadTemplates();
+  }, []);
 
   const handleAddTag = () => {
     if (newTag.trim() && !tags.includes(newTag.trim())) {
@@ -197,6 +219,10 @@ export default function RecordMeeting() {
         title: "회의 분석 완료!",
         description: `AI가 회의를 분석하여 요약과 ${finalActionItems.length}개의 액션 아이템을 생성했습니다.`
       });
+
+      // 이메일 템플릿 선택 팝업 표시
+      setPendingMeetingId(savedMeeting.id);
+      setShowTemplateModal(true);
 
       // 폼 초기화
       if (source === 'record') {
@@ -352,6 +378,56 @@ export default function RecordMeeting() {
     a.download = `${title || 'meeting'}-transcript.txt`;
     a.click();
     URL.revokeObjectURL(url);
+  };
+
+  // 이메일 템플릿 선택 처리
+  const handleTemplateSelect = async (template: EmailTemplate) => {
+    if (!pendingMeetingId) return;
+
+    try {
+      // 회의 데이터 가져오기
+      const meeting = await indexedDBStorage.getMeeting(pendingMeetingId);
+      if (!meeting) {
+        toast({
+          title: "오류",
+          description: "회의 데이터를 찾을 수 없습니다.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // 선택된 템플릿과 회의 데이터로 이메일 작성 페이지로 이동
+      const templateWithData = {
+        ...template,
+        subject: EmailService.replaceTemplateVariables(template.subject, meeting),
+        body: EmailService.replaceTemplateVariables(template.body, meeting)
+      };
+
+      // 이메일 작성 페이지로 데이터 전달하여 이동
+      setLocation(`/email-compose?meetingId=${pendingMeetingId}&templateId=${template.id}`);
+      
+      setShowTemplateModal(false);
+      setPendingMeetingId(null);
+
+      toast({
+        title: "템플릿 적용 완료",
+        description: "선택한 템플릿으로 이메일 작성 페이지로 이동합니다."
+      });
+
+    } catch (error: any) {
+      console.error("템플릿 처리 오류:", error);
+      toast({
+        title: "템플릿 처리 오류",
+        description: error.message || "템플릿 처리 중 오류가 발생했습니다.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // 템플릿 선택 없이 닫기
+  const handleTemplateModalClose = () => {
+    setShowTemplateModal(false);
+    setPendingMeetingId(null);
   };
 
   return (
@@ -619,6 +695,54 @@ export default function RecordMeeting() {
           취소
         </Button>
       </div>
+
+      {/* 이메일 템플릿 선택 팝업 */}
+      <Dialog open={showTemplateModal} onOpenChange={setShowTemplateModal}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>이메일 템플릿 선택</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-neutral-600">
+              회의 분석이 완료되었습니다! 이메일로 공유할 템플릿을 선택하세요.
+            </p>
+            
+            <div className="grid gap-4">
+              {emailTemplates.map((template) => (
+                <Card key={template.id} className="cursor-pointer hover:shadow-md transition-shadow border-2 hover:border-primary/20">
+                  <CardContent className="p-4" onClick={() => handleTemplateSelect(template)}>
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <h3 className="font-medium text-lg mb-2">{template.name}</h3>
+                        <p className="text-sm text-neutral-600 mb-3">{template.subject}</p>
+                        <div className="text-xs text-neutral-500">
+                          유형: {template.type === 'summary' ? '요약' : 
+                                template.type === 'action_items' ? '액션 아이템' : '전체 보고서'}
+                        </div>
+                      </div>
+                      <div className="flex items-center">
+                        <Button size="sm" className="ml-4">
+                          <i className="ri-mail-line mr-2"></i>
+                          선택
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+
+            <div className="flex justify-between pt-4 border-t">
+              <Button variant="outline" onClick={handleTemplateModalClose}>
+                나중에 하기
+              </Button>
+              <div className="text-sm text-neutral-500">
+                템플릿을 선택하면 이메일 작성 페이지로 이동합니다
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
