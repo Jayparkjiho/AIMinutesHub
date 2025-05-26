@@ -385,6 +385,45 @@ ${meeting.notes}
                 </div>
               )}
             </div>
+            
+            {/* AI 요약 내용 표시 */}
+            {meetingData.summary && (
+              <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <h4 className="font-medium text-blue-900 mb-2 flex items-center">
+                  <i className="ri-brain-line mr-2"></i>
+                  AI 요약
+                </h4>
+                <p className="text-blue-800 text-sm leading-relaxed">
+                  {meetingData.summary}
+                </p>
+              </div>
+            )}
+            
+            {/* 액션 아이템 상세 표시 */}
+            {meetingData.actionItems && meetingData.actionItems.length > 0 && (
+              <div className="mt-4 p-4 bg-green-50 rounded-lg border border-green-200">
+                <h4 className="font-medium text-green-900 mb-3 flex items-center">
+                  <i className="ri-task-line mr-2"></i>
+                  액션 아이템 ({meetingData.actionItems.length}개)
+                </h4>
+                <div className="space-y-2">
+                  {meetingData.actionItems.slice(0, 3).map((item, index) => (
+                    <div key={index} className="flex items-start space-x-2">
+                      <span className="text-green-700 font-medium text-sm">•</span>
+                      <div className="flex-1">
+                        <p className="text-green-800 text-sm">{item.text}</p>
+                        {item.assignee && (
+                          <p className="text-green-600 text-xs mt-1">담당: {item.assignee}</p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  {meetingData.actionItems.length > 3 && (
+                    <p className="text-green-600 text-xs">+ {meetingData.actionItems.length - 3}개 더...</p>
+                  )}
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
@@ -543,6 +582,22 @@ ${meeting.notes}
                       </Button>
                     ))}
                   </div>
+                  
+                  {/* 템플릿 관리 링크 */}
+                  <div className="flex justify-between items-center mt-3 pt-3 border-t border-gray-200">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => navigate('/templates')}
+                      className="text-blue-600 hover:text-blue-700"
+                    >
+                      <i className="ri-settings-3-line mr-2"></i>
+                      템플릿 관리
+                    </Button>
+                    <span className="text-xs text-gray-500">
+                      {templates.length}개 템플릿 사용 가능
+                    </span>
+                  </div>
                   {selectedTemplate && (
                     <p className="text-xs text-blue-600 mt-1">
                       ✓ {selectedTemplate.name} 템플릿이 적용됨
@@ -686,9 +741,32 @@ ${meeting.notes}
 
               {/* 내용 */}
               <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-2">
-                  내용 *
-                </label>
+                <div className="flex justify-between items-center mb-2">
+                  <label className="block text-sm font-medium text-neutral-700">
+                    내용 *
+                  </label>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        if (meetingData) {
+                          setEmailForm(prev => ({
+                            ...prev,
+                            text: generateDefaultEmailContent(meetingData)
+                          }));
+                          toast({
+                            title: "내용 복원됨",
+                            description: "기본 회의록 내용으로 복원했습니다."
+                          });
+                        }
+                      }}
+                    >
+                      <i className="ri-refresh-line mr-1"></i>
+                      기본 내용으로 복원
+                    </Button>
+                  </div>
+                </div>
                 <Textarea
                   placeholder="메일 내용을 입력하세요"
                   value={emailForm.text}
@@ -697,7 +775,12 @@ ${meeting.notes}
                     text: e.target.value
                   }))}
                   rows={12}
+                  className="font-mono text-sm"
                 />
+                <div className="text-xs text-gray-500 mt-1 flex justify-between">
+                  <span>이모지와 포맷이 자동으로 적용됩니다</span>
+                  <span>{emailForm.text.length} 글자</span>
+                </div>
               </div>
 
               {/* 전송 버튼 */}
