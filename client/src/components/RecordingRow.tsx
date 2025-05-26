@@ -75,7 +75,7 @@ export function RecordingRow({ recording, onDeleteSuccess }: RecordingRowProps) 
   return (
     <tr className="hover:bg-neutral-50">
       <td className="px-4 py-3">
-        <Link href={`/meeting/${recording.id}`}>
+        <Link href={`/meetings/${recording.id}`}>
           <a className="flex items-center">
             <i className="ri-file-text-line text-lg text-primary mr-2"></i>
             <span className="font-medium text-neutral-800">{recording.title}</span>

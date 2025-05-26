@@ -13,7 +13,7 @@ export function MeetingCard({ meeting }: MeetingCardProps) {
   const formattedDuration = formatDuration(meeting.duration);
   
   return (
-    <Link href={`/meeting/${meeting.id}`}>
+    <Link href={`/meetings/${meeting.id}`}>
       <a className="bg-white rounded-lg border border-neutral-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow block">
         <div className="p-4">
           <div className="flex justify-between items-start mb-3">
