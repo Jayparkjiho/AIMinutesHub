@@ -4,7 +4,7 @@ import { useToast } from "@/hooks/use-toast";
 import { formatDuration } from "@/hooks/use-audio-recorder";
 import { format } from "date-fns";
 import { Link } from "wouter";
-import { apiRequest } from "@/lib/queryClient";
+import { useIndexedDBMeetings } from "@/hooks/use-indexeddb";
 
 interface RecordingRowProps {
   recording: Meeting;
@@ -14,6 +14,7 @@ interface RecordingRowProps {
 export function RecordingRow({ recording, onDeleteSuccess }: RecordingRowProps) {
   const { toast } = useToast();
   const [isDeleting, setIsDeleting] = useState(false);
+  const { deleteMeeting } = useIndexedDBMeetings();
   
   const formattedDate = format(new Date(recording.date), "MMM d, yyyy");
   const formattedDuration = formatDuration(recording.duration);
@@ -23,26 +24,26 @@ export function RecordingRow({ recording, onDeleteSuccess }: RecordingRowProps) 
     e.stopPropagation();
     
     // Confirm deletion
-    if (!window.confirm(`Are you sure you want to delete "${recording.title}"?`)) {
+    if (!window.confirm(`정말로 "${recording.title}" 회의를 삭제하시겠습니까?`)) {
       return;
     }
     
     setIsDeleting(true);
     
     try {
-      await apiRequest("DELETE", `/api/meetings/${recording.id}`);
+      await deleteMeeting(recording.id);
       toast({
-        title: "Recording deleted",
-        description: `"${recording.title}" has been deleted.`,
+        title: "회의 삭제 완료",
+        description: `"${recording.title}" 회의가 삭제되었습니다.`,
       });
       
       if (onDeleteSuccess) {
         onDeleteSuccess();
       }
-    } catch (error) {
+    } catch (error: any) {
       toast({
-        title: "Error deleting recording",
-        description: error.message,
+        title: "삭제 오류",
+        description: error?.message || "회의 삭제 중 오류가 발생했습니다.",
         variant: "destructive",
       });
     } finally {
