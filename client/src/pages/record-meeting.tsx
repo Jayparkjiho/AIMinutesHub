@@ -294,8 +294,8 @@ export default function RecordMeeting() {
     }
   };
 
-  // Generate AI analysis (summary, action items, and title)
-  const generateAIAnalysis = async (transcript: string) => {
+  // Generate AI analysis (summary, action items, and title) and save to IndexedDB
+  const generateAIAnalysis = async (transcript: string, saveMeetingId?: number) => {
     if (!transcript.trim()) return;
     
     setIsGeneratingAnalysis(true);
@@ -343,10 +343,52 @@ export default function RecordMeeting() {
         setGeneratedActionItems(actionItems);
       }
 
-      // 기존 회의가 있으면 AI 분석 결과로 업데이트
-      if (meetingId && (summary || actionItems.length > 0)) {
+      // If saveMeetingId is provided, save AI analysis to IndexedDB
+      if (saveMeetingId && (summary || actionItems.length > 0 || generatedTitle)) {
         try {
-          console.log('Updating meeting with AI analysis:', { meetingId, summary, actionItems });
+          console.log('Saving AI analysis to IndexedDB:', { saveMeetingId, summary, actionItems, generatedTitle });
+          await indexedDBStorage.init();
+          const existingMeeting = await indexedDBStorage.getMeeting(saveMeetingId);
+          
+          if (existingMeeting) {
+            // Convert AI action items to proper format
+            const newActionItems = actionItems.map((aiItem: any) => ({
+              id: `action_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+              text: aiItem.text,
+              completed: false,
+              assignee: aiItem.assignee || undefined,
+              dueDate: aiItem.dueDate || undefined,
+            }));
+            
+            // Update the meeting with AI analysis results
+            const updates = {
+              title: generatedTitle || existingMeeting.title,
+              summary: summary,
+              actionItems: newActionItems,
+              transcript: transcriptText || existingMeeting.transcript
+            };
+            
+            console.log('Updating meeting with AI data:', updates);
+            const updatedMeeting = await indexedDBStorage.updateMeeting(saveMeetingId, updates);
+            console.log('Meeting updated successfully with AI data:', updatedMeeting);
+            
+            toast({
+              title: "AI 분석 완료",
+              description: `회의가 AI로 분석되어 IndexedDB에 저장되었습니다.`,
+            });
+          }
+        } catch (updateError) {
+          console.error("Error saving AI analysis to IndexedDB:", updateError);
+          toast({
+            title: "AI 분석 완료",
+            description: "분석은 완료되었지만 저장 중 오류가 발생했습니다.",
+            variant: "destructive"
+          });
+        }
+      } else if (meetingId && (summary || actionItems.length > 0)) {
+        // For existing meetings (from other tabs)
+        try {
+          console.log('Updating existing meeting with AI analysis:', { meetingId, summary, actionItems });
           await indexedDBStorage.init();
           const existingMeeting = await indexedDBStorage.getMeeting(meetingId);
           
@@ -639,8 +681,14 @@ export default function RecordMeeting() {
       
       setProcessingProgress(50);
       
-      // Generate AI analysis
+      // Generate AI analysis and save to IndexedDB
       await generateAIAnalysis(transcribeResult.text, savedMeeting.id);
+      
+      // After AI analysis, update the meeting with all AI-generated data
+      const updatedMeeting = await indexedDBStorage.getMeeting(savedMeeting.id);
+      if (updatedMeeting && updatedMeeting.summary) {
+        console.log("AI analysis saved to IndexedDB:", updatedMeeting);
+      }
       
       setProcessingProgress(100);
       
