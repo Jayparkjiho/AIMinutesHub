@@ -514,7 +514,8 @@ export default function TemplateManager() {
       )}
 
       {/* 템플릿 생성/편집 다이얼로그 */}
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             {editingTemplate ? '템플릿 편집' : '새 템플릿 만들기'}
@@ -605,6 +606,7 @@ export default function TemplateManager() {
           </div>
         </div>
       </DialogContent>
+      </Dialog>
     </div>
   );
 }
