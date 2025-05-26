@@ -1,16 +1,32 @@
 import OpenAI from "openai";
+import fs from "fs";
+import path from "path";
+import { v4 as uuidv4 } from "uuid";
 
 // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 // Transcribe audio file
 export async function transcribeAudio(audioBuffer: Buffer): Promise<{ text: string, duration: number }> {
+  let tempFilePath = '';
+  
   try {
-    // Create a File object from buffer
-    const audioFile = new File([audioBuffer], 'audio.wav', { type: 'audio/wav' });
+    // Create temp directory if it doesn't exist
+    const tempDir = path.join(process.cwd(), 'temp');
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true });
+    }
     
+    // Create a temporary file
+    const fileName = `audio_${uuidv4()}.wav`;
+    tempFilePath = path.join(tempDir, fileName);
+    
+    // Write buffer to temporary file
+    fs.writeFileSync(tempFilePath, audioBuffer);
+    
+    // Create a readable stream for OpenAI
     const transcription = await openai.audio.transcriptions.create({
-      file: audioFile,
+      file: fs.createReadStream(tempFilePath),
       model: "whisper-1",
     });
 
@@ -21,6 +37,15 @@ export async function transcribeAudio(audioBuffer: Buffer): Promise<{ text: stri
   } catch (error: any) {
     console.error("Error transcribing audio:", error);
     throw new Error(`Failed to transcribe audio: ${error.message}`);
+  } finally {
+    // Clean up temporary file
+    if (tempFilePath && fs.existsSync(tempFilePath)) {
+      try {
+        fs.unlinkSync(tempFilePath);
+      } catch (cleanupError) {
+        console.warn("Failed to clean up temporary file:", cleanupError);
+      }
+    }
   }
 }
 
