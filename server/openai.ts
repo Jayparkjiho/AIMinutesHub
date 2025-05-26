@@ -5,7 +5,9 @@ import { v4 as uuidv4 } from "uuid";
 import FormData from "form-data";
 
 // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const openai = new OpenAI({ 
+  apiKey: "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"
+});
 
 // Transcribe audio file
 export async function transcribeAudio(audioBuffer: Buffer): Promise<{ text: string, duration: number }> {
