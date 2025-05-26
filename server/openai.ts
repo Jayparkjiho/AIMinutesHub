@@ -130,3 +130,29 @@ export async function identifyParticipants(transcript: string): Promise<{ name: 
     return [];
   }
 }
+
+export async function generateMeetingTitle(transcript: string): Promise<string> {
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o", // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
+      messages: [
+        {
+          role: "system",
+          content: "회의 내용을 분석해서 적절한 회의 제목을 생성하세요. 제목은 간결하고 회의의 핵심 주제를 잘 나타내야 합니다. 한국어로 응답하세요. JSON 형식으로 응답: {\"title\": \"생성된 제목\"}"
+        },
+        {
+          role: "user",
+          content: transcript
+        }
+      ],
+      response_format: { type: "json_object" },
+      max_tokens: 200
+    });
+
+    const result = JSON.parse(response.choices[0].message.content || '{"title": "회의"}');
+    return result.title || "회의";
+  } catch (error: any) {
+    console.error("Error generating meeting title:", error);
+    throw new Error(`Failed to generate meeting title: ${error.message}`);
+  }
+}

@@ -9,7 +9,7 @@ import {
   type Meeting
 } from "@shared/schema";
 import multer from "multer";
-import { transcribeAudio, generateSummary, extractActionItems, identifyParticipants } from "./openai";
+import { transcribeAudio, generateSummary, extractActionItems, identifyParticipants, generateMeetingTitle } from "./openai";
 import { v4 as uuidv4 } from "uuid";
 
 // Setup multer for memory storage
