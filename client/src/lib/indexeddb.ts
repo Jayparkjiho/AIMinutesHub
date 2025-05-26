@@ -1,7 +1,7 @@
 import { Meeting, ActionItem, Participant } from './types';
 
 class IndexedDBStorage {
-  private dbName = 'MeetScribeDB';
+  private dbName = 'SmartMinutesMakerDB';
   private dbVersion = 1;
   private db: IDBDatabase | null = null;
 

@@ -24,7 +24,7 @@ export function MobileHeader() {
             <div className="w-8 h-8 rounded-md bg-primary flex items-center justify-center text-white mr-2">
               <i className="ri-file-text-line text-lg"></i>
             </div>
-            <h1 className="text-xl font-semibold text-neutral-800">MeetScribe</h1>
+            <h1 className="text-xl font-semibold text-neutral-800">Smart Minutes Maker</h1>
           </div>
           <button 
             className="text-neutral-600 focus:outline-none" 
