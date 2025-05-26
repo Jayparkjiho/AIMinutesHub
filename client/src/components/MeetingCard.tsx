@@ -58,7 +58,7 @@ export function MeetingCard({ meeting, onDeleteSuccess }: MeetingCardProps) {
           <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-full">{formattedDuration}</span>
         </div>
         <p className="text-neutral-600 text-sm line-clamp-2 mb-3 content-text">
-          {meeting.summary || "No summary available yet. Process this meeting to generate a summary."}
+          {meeting.summary || "AI 분석을 통해 요약을 생성해보세요."}
         </p>
         <div className="flex items-center justify-between text-xs text-neutral-500">
           <span>{formattedDate}</span>
