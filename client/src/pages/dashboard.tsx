@@ -5,6 +5,7 @@ import { MeetingDetailModal } from "@/components/MeetingDetailModal";
 import { RecordingRow } from "@/components/RecordingRow";
 import { Meeting, MeetingStat } from "@/lib/types";
 import { useIndexedDBMeetings } from "@/hooks/use-indexeddb";
+import { indexedDBStorage } from "@/lib/indexeddb";
 
 export default function Dashboard() {
   // Fetch meetings from IndexedDB
@@ -16,8 +17,21 @@ export default function Dashboard() {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   // Handle meeting click
-  const handleMeetingClick = (meeting: Meeting) => {
-    setSelectedMeeting(meeting);
+  const handleMeetingClick = async (meeting: Meeting) => {
+    // Fetch fresh data from IndexedDB to ensure we have the latest updates
+    try {
+      await indexedDBStorage.init();
+      const freshMeeting = await indexedDBStorage.getMeeting(meeting.id);
+      if (freshMeeting) {
+        console.log('Fresh meeting data:', freshMeeting);
+        setSelectedMeeting(freshMeeting);
+      } else {
+        setSelectedMeeting(meeting);
+      }
+    } catch (error) {
+      console.error('Error fetching fresh meeting data:', error);
+      setSelectedMeeting(meeting);
+    }
     setIsModalOpen(true);
   };
 

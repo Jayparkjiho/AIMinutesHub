@@ -360,15 +360,16 @@ export default function RecordMeeting() {
               dueDate: aiItem.dueDate || undefined,
             }));
             
-            const updatedMeeting = {
-              ...existingMeeting,
+            // Update the meeting with AI analysis results
+            const updates = {
               title: generatedTitle || existingMeeting.title,
               summary: summary || existingMeeting.summary,
               actionItems: [...existingActionItems, ...newActionItems]
             };
             
-            console.log('Updated meeting data:', updatedMeeting);
-            await indexedDBStorage.updateMeeting(meetingId, updatedMeeting);
+            console.log('Updating meeting with:', updates);
+            const updatedMeeting = await indexedDBStorage.updateMeeting(meetingId, updates);
+            console.log('Meeting updated successfully:', updatedMeeting);
             
             // Clear the generated action items since they're now saved to the meeting
             setGeneratedActionItems([]);
