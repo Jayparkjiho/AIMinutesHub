@@ -94,24 +94,56 @@ export default function RecordMeeting() {
       setIsProcessing(true);
       setProcessingProgress(20);
 
+      // Try to transcribe and generate title
+      let transcript = `[Audio file uploaded: ${uploadedFile.name}]`;
+      let generatedTitle = title || "업로드된 음성 파일";
+      
+      try {
+        // Create FormData for audio transcription
+        const formData = new FormData();
+        formData.append('audio', uploadedFile, uploadedFile.name);
+        
+        // Call transcription API
+        const transcriptionResponse = await fetch('/api/transcribe-audio', {
+          method: 'POST',
+          body: formData
+        });
+        
+        if (transcriptionResponse.ok) {
+          const transcriptionResult = await transcriptionResponse.json();
+          transcript = transcriptionResult.text || transcript;
+          setTranscriptText(transcript);
+          setProcessingProgress(60);
+          
+          // Generate title from transcript if we have actual transcription
+          if (transcript !== `[Audio file uploaded: ${uploadedFile.name}]`) {
+            generatedTitle = await generateMeetingTitle(transcript);
+          }
+        }
+      } catch (error) {
+        console.error('Transcription failed:', error);
+        // Continue with file name as transcript
+      }
+      
+      setProcessingProgress(80);
+
       // Create meeting in IndexedDB
       saveMeeting({
-        title: title || "Untitled Meeting",
+        title: title || generatedTitle,
         tags,
         notes,
         date: new Date().toISOString(),
         duration: 0,
         userId: 1,
-        transcript: `[Audio file uploaded: ${uploadedFile.name}]`
+        transcript
       }, {
         onSuccess: (meeting) => {
           setMeetingId(meeting.id);
           setProcessingProgress(100);
-          setTranscriptText(`[Audio file uploaded: ${uploadedFile.name}]`);
 
           toast({
             title: "File uploaded successfully!",
-            description: "Audio file saved. Add OpenAI API key to enable transcription."
+            description: `파일이 저장되었습니다. 제목: "${title || generatedTitle}"`
           });
 
           setTimeout(() => {
@@ -122,7 +154,6 @@ export default function RecordMeeting() {
           throw error;
         }
       });
-      setProcessingProgress(40);
 
     } catch (error: any) {
       toast({
@@ -133,6 +164,29 @@ export default function RecordMeeting() {
     } finally {
       setIsProcessing(false);
       setProcessingProgress(0);
+    }
+  };
+
+  // Generate meeting title using OpenAI
+  const generateMeetingTitle = async (transcript: string): Promise<string> => {
+    try {
+      const response = await fetch('/api/meetings/generate-title-text', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ transcript })
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to generate title');
+      }
+      
+      const result = await response.json();
+      return result.title || "회의";
+    } catch (error) {
+      console.error('Error generating title:', error);
+      return "회의"; // fallback title
     }
   };
 
@@ -151,9 +205,13 @@ export default function RecordMeeting() {
       setIsProcessing(true);
       setProcessingProgress(30);
 
+      // Generate title from transcript
+      const generatedTitle = await generateMeetingTitle(manualText);
+      setProcessingProgress(60);
+
       // Create meeting with transcript in IndexedDB
       saveMeeting({
-        title: title || "Untitled Meeting",
+        title: title || generatedTitle,
         tags,
         notes,
         transcript: manualText,
@@ -167,7 +225,7 @@ export default function RecordMeeting() {
 
           toast({
             title: "Meeting saved!",
-            description: "Your meeting content has been saved successfully."
+            description: `회의가 저장되었습니다. 제목: "${title || generatedTitle}"`
           });
 
           setTimeout(() => {

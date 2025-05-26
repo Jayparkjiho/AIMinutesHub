@@ -278,6 +278,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Generate meeting title from transcript
+  app.post("/api/meetings/:id/generate-title", async (req: Request, res: Response) => {
+    const meetingId = parseInt(req.params.id);
+    const meeting = await storage.getMeeting(meetingId);
+    
+    if (!meeting) {
+      return res.status(404).json({ error: "Meeting not found" });
+    }
+
+    if (!meeting.transcript) {
+      return res.status(400).json({ error: "No transcript available for title generation" });
+    }
+
+    try {
+      const generatedTitle = await generateMeetingTitle(meeting.transcript);
+      
+      const updatedMeeting = await storage.updateMeeting(meetingId, {
+        title: generatedTitle
+      });
+
+      res.json({ title: generatedTitle, meeting: updatedMeeting });
+    } catch (error: any) {
+      console.error("Error generating meeting title:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Generate meeting title from text directly
+  app.post("/api/meetings/generate-title-text", async (req: Request, res: Response) => {
+    const { transcript } = req.body;
+    
+    if (!transcript) {
+      return res.status(400).json({ error: "No transcript provided" });
+    }
+
+    try {
+      const generatedTitle = await generateMeetingTitle(transcript);
+      res.json({ title: generatedTitle });
+    } catch (error: any) {
+      console.error("Error generating meeting title:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Transcribe audio file directly
+  app.post("/api/transcribe-audio", upload.single("audio"), async (req: Request, res: Response) => {
+    if (!req.file) {
+      return res.status(400).json({ error: "No audio file provided" });
+    }
+
+    try {
+      const result = await transcribeAudio(req.file.buffer);
+      res.json({ text: result.text, duration: result.duration });
+    } catch (error: any) {
+      console.error("Error transcribing audio:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Send email (mock endpoint)
   app.post("/api/email/send", async (req: Request, res: Response) => {
     try {
