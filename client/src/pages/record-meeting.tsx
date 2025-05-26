@@ -374,6 +374,29 @@ export default function RecordMeeting() {
     }
   };
 
+  // Extract participants from separated transcript
+  const extractParticipantsFromTranscript = (separatedTranscript: string) => {
+    const participants = [];
+    const speakerPattern = /^(화자\s*\d+|Speaker\s*\d+|참석자\s*\d+|발표자\s*\d+):/gm;
+    const speakers = new Set();
+    
+    let match;
+    while ((match = speakerPattern.exec(separatedTranscript)) !== null) {
+      speakers.add(match[1].trim());
+    }
+    
+    // Convert speakers to participant objects
+    Array.from(speakers).forEach((speaker: any, index: number) => {
+      participants.push({
+        id: `participant_${index + 1}`,
+        name: speaker,
+        isHost: index === 0 // First speaker is considered host
+      });
+    });
+    
+    return participants;
+  };
+
   // Separate speakers in transcript
   const separateSpeakers = async (transcript: string) => {
     if (!transcript.trim()) return;
@@ -391,9 +414,32 @@ export default function RecordMeeting() {
         if (data.separatedTranscript) {
           setSeparatedTranscript(data.separatedTranscript);
           
+          // Extract participants from separated transcript
+          const participants = extractParticipantsFromTranscript(data.separatedTranscript);
+          
+          // Save participants to meeting if meetingId exists
+          if (meetingId && participants.length > 0) {
+            try {
+              await indexedDBStorage.init();
+              const existingMeeting = await indexedDBStorage.getMeeting(meetingId);
+              
+              if (existingMeeting) {
+                const updatedMeeting = {
+                  ...existingMeeting,
+                  participants: participants,
+                  transcript: data.separatedTranscript
+                };
+                
+                await indexedDBStorage.updateMeeting(meetingId, updatedMeeting);
+              }
+            } catch (updateError) {
+              console.error("Error updating meeting with participants:", updateError);
+            }
+          }
+          
           toast({
             title: "화자 분리 완료",
-            description: "전사 내용에서 화자가 구분되었습니다.",
+            description: `전사 내용에서 ${participants.length}명의 화자가 구분되었습니다.`,
           });
         } else {
           throw new Error('No separated transcript received');
