@@ -4,11 +4,10 @@ import { Waveform } from "@/components/ui/waveform";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { Badge } from "@/components/ui/badge";
-import { queryClient } from "@/lib/queryClient";
+import { useIndexedDBMeetings } from "@/hooks/use-indexeddb";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -16,6 +15,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 export default function RecordMeeting() {
   const [location, navigate] = useLocation();
   const { toast } = useToast();
+  const { saveMeeting, updateMeeting } = useIndexedDBMeetings();
+  
   const [title, setTitle] = useState("");
   const [tags, setTags] = useState<string[]>([]);
   const [newTag, setNewTag] = useState("");
@@ -93,46 +94,40 @@ export default function RecordMeeting() {
       setIsProcessing(true);
       setProcessingProgress(20);
 
-      // Create meeting first
-      const meeting = await apiRequest("POST", "/api/meetings", {
+      // Create meeting in IndexedDB
+      saveMeeting({
         title: title || "Untitled Meeting",
         tags,
-        notes
+        notes,
+        date: new Date().toISOString(),
+        duration: 0,
+        userId: 1,
+        transcript: `[Audio file uploaded: ${uploadedFile.name}]`
+      }, {
+        onSuccess: (meeting) => {
+          setMeetingId(meeting.id);
+          setProcessingProgress(100);
+          setTranscriptText(`[Audio file uploaded: ${uploadedFile.name}]`);
+
+          toast({
+            title: "File uploaded successfully!",
+            description: "Audio file saved. Add OpenAI API key to enable transcription."
+          });
+
+          setTimeout(() => {
+            navigate(`/meetings/${meeting.id}`);
+          }, 1000);
+        },
+        onError: (error) => {
+          throw error;
+        }
       });
-      const meetingResponse = await meeting.json();
-      const newMeetingId = meetingResponse.id;
-      setMeetingId(newMeetingId);
       setProcessingProgress(40);
-
-      // Upload file for transcription
-      const formData = new FormData();
-      formData.append('audio', uploadedFile, uploadedFile.name);
-
-      const transcribeResponse = await fetch(`/api/meetings/${newMeetingId}/record`, {
-        method: 'POST',
-        body: formData
-      });
-      const transcribeResult = await transcribeResponse.json();
-      setTranscriptText(transcribeResult.transcript);
-      setProcessingProgress(70);
-
-      // Generate summary and action items
-      await generateSummaryAndActions(newMeetingId);
-      setProcessingProgress(100);
-
-      toast({
-        title: "Processing complete!",
-        description: "Your audio file has been transcribed and analyzed."
-      });
-
-      setTimeout(() => {
-        navigate(`/meetings/${newMeetingId}`);
-      }, 1000);
 
     } catch (error: any) {
       toast({
-        title: "Processing failed",
-        description: "There was an error processing your file.",
+        title: "Upload failed",
+        description: "There was an error saving your file.",
         variant: "destructive"
       });
     } finally {
@@ -156,35 +151,33 @@ export default function RecordMeeting() {
       setIsProcessing(true);
       setProcessingProgress(30);
 
-      // Create meeting with transcript
-      const meeting = await apiRequest("POST", "/api/meetings", {
+      // Create meeting with transcript in IndexedDB
+      const meeting = await saveMeeting({
         title: title || "Untitled Meeting",
         tags,
         notes,
-        transcript: manualText
+        transcript: manualText,
+        date: new Date().toISOString(),
+        duration: 0,
+        userId: 1
       });
-      const meetingResponse = await meeting.json();
-      const newMeetingId = meetingResponse.id;
-      setMeetingId(newMeetingId);
-      setProcessingProgress(60);
-
-      // Generate summary and action items
-      await generateSummaryAndActions(newMeetingId);
+      
+      setMeetingId(meeting.id);
       setProcessingProgress(100);
 
       toast({
-        title: "Processing complete!",
-        description: "Your meeting content has been analyzed."
+        title: "Meeting saved!",
+        description: "Your meeting content has been saved successfully."
       });
 
       setTimeout(() => {
-        navigate(`/meetings/${newMeetingId}`);
+        navigate(`/meetings/${meeting.id}`);
       }, 1000);
 
     } catch (error: any) {
       toast({
-        title: "Processing failed",
-        description: "There was an error processing your text.",
+        title: "Save failed",
+        description: "There was an error saving your text.",
         variant: "destructive"
       });
     } finally {
