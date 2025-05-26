@@ -14,8 +14,13 @@ import { Separator } from "@/components/ui/separator";
 
 export default function EmailSender() {
   const { id } = useParams<{ id: string }>();
-  const [, navigate] = useLocation();
+  const [location, navigate] = useLocation();
   const { toast } = useToast();
+  
+  // URL에서 회의 데이터 추출
+  const urlParams = new URLSearchParams(location.split('?')[1] || '');
+  const meetingDataParam = urlParams.get('meetingData');
+  const passedMeeting = meetingDataParam ? JSON.parse(decodeURIComponent(meetingDataParam)) : null;
   
   const [recipients, setRecipients] = useState<string[]>([]);
   const [newRecipient, setNewRecipient] = useState("");
@@ -30,10 +35,13 @@ export default function EmailSender() {
   const { templates, isLoading: templatesLoading } = useIndexedDBTemplates();
   const { preferences, savePreference } = useIndexedDBPreferences();
 
-  // Fetch meeting data
-  const { data: meeting, isLoading: meetingLoading } = useQuery<Meeting>({
+  // Use passed meeting data or fetch from API
+  const { data: apiMeeting, isLoading: meetingLoading } = useQuery<Meeting>({
     queryKey: [`/api/meetings/${id}`],
+    enabled: !passedMeeting && !!id, // Only fetch if no passed data and ID exists
   });
+  
+  const meeting = passedMeeting || apiMeeting;
 
   // Load default templates if none exist
   useEffect(() => {

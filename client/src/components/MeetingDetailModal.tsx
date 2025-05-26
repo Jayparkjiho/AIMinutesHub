@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { formatDuration } from "@/hooks/use-audio-recorder";
+import { useLocation } from "wouter";
 
 interface MeetingDetailModalProps {
   meeting: Meeting | null;
@@ -11,7 +12,16 @@ interface MeetingDetailModalProps {
 }
 
 export function MeetingDetailModal({ meeting, isOpen, onClose }: MeetingDetailModalProps) {
+  const [, navigate] = useLocation();
+  
   if (!meeting) return null;
+
+  const handleEmailSend = () => {
+    // 회의 데이터를 이메일 페이지로 전달
+    const meetingData = encodeURIComponent(JSON.stringify(meeting));
+    navigate(`/email-sender?meetingData=${meetingData}`);
+    onClose();
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -118,33 +128,13 @@ export function MeetingDetailModal({ meeting, isOpen, onClose }: MeetingDetailMo
               </div>
             )}
 
-            {/* AI 도입 효과 측정 Section */}
+            {/* AI 요약 Section */}
             <div>
-              <h3 className="text-lg font-semibold mb-3">AI 도입 효과 측정</h3>
-              <div className="border-l-4 border-green-400 bg-green-50 p-4 rounded-r-lg">
-                <p className="text-sm text-green-800 mb-3">
-                  AI 도입 효과를 측정하기 위한 KPI 설정 및 A/B 테스트 계획을 논의하였습니다.
+              <h3 className="text-lg font-semibold mb-3">AI 요약</h3>
+              <div className="border-l-4 border-blue-400 bg-blue-50 p-4 rounded-r-lg">
+                <p className="text-sm text-blue-800 leading-relaxed whitespace-pre-wrap">
+                  {meeting.summary || "AI 요약이 아직 생성되지 않았습니다. 회의록 페이지에서 'AI 분석 다시 실행' 버튼을 클릭하여 요약을 생성해보세요."}
                 </p>
-                
-                <div className="space-y-2">
-                  <div>
-                    <span className="font-medium text-green-900">결정사항:</span>
-                    <ul className="list-disc list-inside ml-4 text-sm text-green-800">
-                      <li>주간 노출 대비 클릭률 상승 목표</li>
-                      <li>월 내 전환율 효과 주요 KPI로 설정</li>
-                    </ul>
-                  </div>
-                  
-                  <div className="flex items-center">
-                    <span className="font-medium text-green-900 mr-2">액션 아이템:</span>
-                    <div className="flex items-center space-x-4">
-                      <Badge variant="outline" className="bg-white">
-                        이기획 - AI 도입 효과 측정 계획 수립
-                      </Badge>
-                      <span className="text-sm text-green-700">이번 주</span>
-                    </div>
-                  </div>
-                </div>
               </div>
             </div>
 
@@ -189,11 +179,7 @@ export function MeetingDetailModal({ meeting, isOpen, onClose }: MeetingDetailMo
             삭제
           </Button>
           
-          <Button 
-            onClick={() => {
-              console.log('Send email for meeting:', meeting.id);
-            }}
-          >
+          <Button onClick={handleEmailSend}>
             <i className="ri-mail-send-line mr-2"></i>
             이메일 발송
           </Button>
