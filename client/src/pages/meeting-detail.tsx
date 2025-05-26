@@ -341,67 +341,96 @@ export default function MeetingDetail() {
         </div>
       )}
 
-      {/* Transcript */}
-      {meeting.transcript && (
-        <div className="space-y-3">
-          <h3 className="text-lg font-semibold">Transcript</h3>
-          <div className="bg-gray-50 p-4 rounded-lg max-h-96 overflow-y-auto">
-            <p className="whitespace-pre-wrap">{meeting.transcript}</p>
-          </div>
-        </div>
-      )}
-
-      {/* Summary */}
-      {meeting.summary && (
-        <div className="space-y-3">
-          <h3 className="text-lg font-semibold">Summary</h3>
-          <div className="bg-blue-50 p-4 rounded-lg">
-            <p className="whitespace-pre-wrap">{meeting.summary}</p>
-          </div>
-        </div>
-      )}
-
-      {/* Action Items */}
-      <div className="space-y-3">
-        <h3 className="text-lg font-semibold">Action Items</h3>
-        
-        {/* Existing Action Items */}
-        {meeting.actionItems && meeting.actionItems.length > 0 ? (
-          <div className="space-y-2">
-            {meeting.actionItems.map((item: ActionItem) => (
-              <div 
-                key={item.id} 
-                className={`p-3 rounded-lg border ${item.completed ? 'bg-green-50 border-green-200' : 'bg-white border-gray-200'}`}
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <p className={`${item.completed ? 'line-through text-gray-500' : ''}`}>
-                      {item.text}
-                    </p>
-                    {item.assignee && (
-                      <p className="text-sm text-gray-600 mt-1">
-                        Assigned to: {item.assignee}
-                      </p>
-                    )}
-                    {item.dueDate && (
-                      <p className="text-sm text-gray-600 mt-1">
-                        Due: {format(parseISO(item.dueDate), "PPP")}
-                      </p>
-                    )}
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => toggleActionItem(item.id)}
-                  >
-                    {item.completed ? "Undo" : "Complete"}
-                  </Button>
+      {/* AI Analysis Results */}
+      {(meeting.transcript || meeting.summary || (meeting.actionItems && meeting.actionItems.length > 0)) && (
+        <div className="space-y-6">
+          <div>
+            <h3 className="text-lg font-semibold flex items-center mb-4">
+              <i className="ri-brain-line mr-2"></i>
+              AI 분석 결과
+            </h3>
+            
+            {/* Transcript Preview */}
+            {meeting.transcript && (
+              <div className="mb-6">
+                <h4 className="font-semibold mb-2 flex items-center">
+                  <i className="ri-file-text-line mr-2"></i>
+                  전사 내용
+                </h4>
+                <div className="bg-gray-50 p-4 rounded-lg max-h-32 overflow-y-auto">
+                  <p className="text-sm whitespace-pre-wrap">{meeting.transcript}</p>
                 </div>
               </div>
-            ))}
+            )}
+
+            {/* Generated Summary */}
+            {meeting.summary && (
+              <div className="mb-6">
+                <h4 className="font-semibold mb-2 flex items-center">
+                  <i className="ri-article-line mr-2 text-blue-600"></i>
+                  AI 요약
+                </h4>
+                <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                  <p className="text-sm whitespace-pre-wrap">{meeting.summary}</p>
+                </div>
+              </div>
+            )}
+
+            {/* Generated Action Items */}
+            {meeting.actionItems && meeting.actionItems.length > 0 && (
+              <div>
+                <h4 className="font-semibold mb-2 flex items-center">
+                  <i className="ri-task-line mr-2 text-green-600"></i>
+                  AI 액션 아이템 ({meeting.actionItems.length}개)
+                </h4>
+                <div className="space-y-2">
+                  {meeting.actionItems.map((item: ActionItem) => (
+                    <div key={item.id} className="bg-green-50 p-3 rounded-lg border border-green-200">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <p className={`text-sm font-medium ${item.completed ? 'line-through text-gray-500' : ''}`}>
+                            {item.text}
+                          </p>
+                          {item.assignee && (
+                            <p className="text-xs text-gray-600 mt-1">
+                              담당자: {item.assignee}
+                            </p>
+                          )}
+                          {item.dueDate && (
+                            <p className="text-xs text-gray-600 mt-1">
+                              마감일: {item.dueDate}
+                            </p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="ml-2">
+                            {item.completed ? "완료" : "대기"}
+                          </Badge>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => toggleActionItem(item.id)}
+                          >
+                            {item.completed ? "취소" : "완료"}
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
-        ) : (
-          <p className="text-gray-500">No action items yet.</p>
+        </div>
+      )}
+
+      {/* Manual Action Items Management */}
+      <div className="space-y-3">
+        <h3 className="text-lg font-semibold">추가 액션 아이템 관리</h3>
+        
+        {/* No items message */}
+        {(!meeting.actionItems || meeting.actionItems.length === 0) && (
+          <p className="text-gray-500">AI가 생성한 액션 아이템이 없습니다.</p>
         )}
 
         {/* Add New Action Item */}
