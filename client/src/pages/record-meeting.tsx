@@ -9,8 +9,9 @@ import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { Badge } from "@/components/ui/badge";
 import { queryClient } from "@/lib/queryClient";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function RecordMeeting() {
   const [location, navigate] = useLocation();
@@ -23,6 +24,12 @@ export default function RecordMeeting() {
   const [processingProgress, setProcessingProgress] = useState(0);
   const [meetingId, setMeetingId] = useState<number | null>(null);
   
+  // New states for file upload and text input
+  const [activeTab, setActiveTab] = useState("record");
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [manualText, setManualText] = useState("");
+  const [transcriptText, setTranscriptText] = useState("");
+  
   const {
     audioBlob,
     isRecording,
@@ -31,6 +38,8 @@ export default function RecordMeeting() {
     stopRecording,
     resetRecording
   } = useAudioRecorder();
+  
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Handle tag addition
   const handleAddTag = () => {
@@ -52,6 +61,167 @@ export default function RecordMeeting() {
       handleAddTag();
     }
   };
+
+  // Handle file upload
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      // Check file type
+      const allowedTypes = ['audio/mp3', 'audio/mpeg', 'audio/wav', 'audio/x-wav', 'audio/mp4', 'audio/x-m4a'];
+      if (!allowedTypes.includes(file.type) && !file.name.match(/\.(mp3|wav|m4a)$/i)) {
+        toast({
+          title: "Unsupported file type",
+          description: "Please upload MP3, WAV, or M4A files only.",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      setUploadedFile(file);
+      toast({
+        title: "File uploaded",
+        description: `${file.name} is ready for processing.`
+      });
+    }
+  };
+
+  // Process uploaded file
+  const processUploadedFile = async () => {
+    if (!uploadedFile) return;
+
+    try {
+      setIsProcessing(true);
+      setProcessingProgress(20);
+
+      // Create meeting first
+      const meeting = await apiRequest("POST", "/api/meetings", {
+        title: title || "Untitled Meeting",
+        tags,
+        notes
+      });
+      const meetingResponse = await meeting.json();
+      const newMeetingId = meetingResponse.id;
+      setMeetingId(newMeetingId);
+      setProcessingProgress(40);
+
+      // Upload file for transcription
+      const formData = new FormData();
+      formData.append('audio', uploadedFile);
+
+      const transcribeResponse = await apiRequest("POST", `/api/meetings/${newMeetingId}/record`, formData);
+      const transcribeResult = await transcribeResponse.json();
+      setTranscriptText(transcribeResult.transcript);
+      setProcessingProgress(70);
+
+      // Generate summary and action items
+      await generateSummaryAndActions(newMeetingId);
+      setProcessingProgress(100);
+
+      toast({
+        title: "Processing complete!",
+        description: "Your audio file has been transcribed and analyzed."
+      });
+
+      setTimeout(() => {
+        navigate(`/meetings/${newMeetingId}`);
+      }, 1000);
+
+    } catch (error: any) {
+      toast({
+        title: "Processing failed",
+        description: "There was an error processing your file.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsProcessing(false);
+      setProcessingProgress(0);
+    }
+  };
+
+  // Process manual text
+  const processManualText = async () => {
+    if (!manualText.trim()) {
+      toast({
+        title: "No text provided",
+        description: "Please enter some meeting content to process.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      setIsProcessing(true);
+      setProcessingProgress(30);
+
+      // Create meeting with transcript
+      const meeting = await apiRequest("POST", "/api/meetings", {
+        title: title || "Untitled Meeting",
+        tags,
+        notes,
+        transcript: manualText
+      });
+      const meetingResponse = await meeting.json();
+      const newMeetingId = meetingResponse.id;
+      setMeetingId(newMeetingId);
+      setProcessingProgress(60);
+
+      // Generate summary and action items
+      await generateSummaryAndActions(newMeetingId);
+      setProcessingProgress(100);
+
+      toast({
+        title: "Processing complete!",
+        description: "Your meeting content has been analyzed."
+      });
+
+      setTimeout(() => {
+        navigate(`/meetings/${newMeetingId}`);
+      }, 1000);
+
+    } catch (error: any) {
+      toast({
+        title: "Processing failed",
+        description: "There was an error processing your text.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsProcessing(false);
+      setProcessingProgress(0);
+    }
+  };
+
+  // Generate summary and action items helper
+  const generateSummaryAndActions = async (meetingId: number) => {
+    try {
+      // Generate summary
+      await apiRequest("POST", `/api/meetings/${meetingId}/summary`);
+      // Generate action items
+      await apiRequest("POST", `/api/meetings/${meetingId}/action-items`);
+    } catch (error) {
+      console.error("Error generating summary or actions:", error);
+    }
+  };
+
+  // Download transcript as text file
+  const downloadTranscript = () => {
+    const text = transcriptText || manualText;
+    if (!text) return;
+
+    const blob = new Blob([text], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${title || 'meeting'}-transcript.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    toast({
+      title: "Download started",
+      description: "Transcript file has been downloaded."
+    });
+  };
   
   // Handle recording toggle
   const handleToggleRecording = async () => {
@@ -68,7 +238,7 @@ export default function RecordMeeting() {
           });
           const response = await meeting.json();
           setMeetingId(response.id);
-        } catch (error) {
+        } catch (error: any) {
           toast({
             title: "Error creating meeting",
             description: error.message,
@@ -83,52 +253,33 @@ export default function RecordMeeting() {
   
   // Handle save recording
   const handleSaveRecording = async () => {
-    if (!audioBlob || !meetingId) {
-      toast({
-        title: "No recording to save",
-        description: "Please record audio before saving.",
-        variant: "destructive"
-      });
-      return;
-    }
-    
-    setIsProcessing(true);
-    setProcessingProgress(10);
+    if (!audioBlob || !meetingId) return;
     
     try {
-      // Create a form data object to send the audio file
+      setIsProcessing(true);
+      setProcessingProgress(0);
+      
+      // Upload audio file
       const formData = new FormData();
-      formData.append("audio", audioBlob, "recording.webm");
+      formData.append("audio", audioBlob, "recording.wav");
       
-      // Start a fake progress timer to show progress to user
-      const progressInterval = setInterval(() => {
-        setProcessingProgress(prev => {
-          if (prev >= 90) {
-            clearInterval(progressInterval);
-            return 90;
-          }
-          return prev + 5;
-        });
-      }, 1000);
+      setProcessingProgress(30);
+      const uploadResponse = await apiRequest("POST", `/api/meetings/${meetingId}/record`, formData);
+      const uploadResult = await uploadResponse.json();
       
-      // Send the audio to the server for processing
-      const response = await fetch(`/api/meetings/${meetingId}/record`, {
-        method: "POST",
-        body: formData,
-        credentials: "include"
-      });
+      setProcessingProgress(60);
       
-      clearInterval(progressInterval);
+      // Generate summary
+      await apiRequest("POST", `/api/meetings/${meetingId}/summary`);
+      
+      setProcessingProgress(80);
+      
+      // Generate action items  
+      await apiRequest("POST", `/api/meetings/${meetingId}/action-items`);
+      
       setProcessingProgress(100);
       
-      if (!response.ok) {
-        const error = await response.text();
-        throw new Error(error || "Failed to process recording");
-      }
-      
-      const data = await response.json();
-      
-      // Invalidate the meetings cache to refresh the data
+      // Invalidate queries to refresh the data
       await queryClient.invalidateQueries({ queryKey: ["/api/meetings"] });
       
       toast({
@@ -138,7 +289,7 @@ export default function RecordMeeting() {
       
       // Navigate to the meeting detail page
       navigate(`/meeting/${meetingId}`);
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: "Error processing recording",
         description: error.message,
@@ -163,22 +314,38 @@ export default function RecordMeeting() {
     <div className="px-4 py-6 md:px-8">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-neutral-800">Record Meeting</h1>
-          <p className="text-neutral-500 mt-1">Create a new meeting recording and transcription</p>
+          <h1 className="text-2xl font-bold text-neutral-800">Create Meeting</h1>
+          <p className="text-neutral-500 mt-1">Record audio, upload files, or input text manually</p>
         </div>
       </div>
       
+      {/* Meeting Information */}
       <Card className="mb-6">
-        <CardContent className="p-6">
-          <div className="mb-4">
-            <label htmlFor="meetingTitle" className="block text-sm font-medium text-neutral-700 mb-1">Meeting Title</label>
-            <Input 
-              id="meetingTitle"
-              value={title}
-              onChange={e => setTitle(e.target.value)}
-              placeholder="Enter meeting title"
-              className="w-full"
-            />
+        <CardHeader>
+          <CardTitle>Meeting Information</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div>
+              <label htmlFor="meetingTitle" className="block text-sm font-medium text-neutral-700 mb-1">Meeting Title</label>
+              <Input 
+                id="meetingTitle"
+                value={title}
+                onChange={e => setTitle(e.target.value)}
+                placeholder="Enter meeting title"
+                className="w-full"
+              />
+            </div>
+            <div>
+              <label htmlFor="notes" className="block text-sm font-medium text-neutral-700 mb-1">Notes</label>
+              <Input 
+                id="notes"
+                value={notes}
+                onChange={e => setNotes(e.target.value)}
+                placeholder="Add meeting notes (optional)"
+                className="w-full"
+              />
+            </div>
           </div>
           
           <div className="mb-4">
@@ -214,76 +381,206 @@ export default function RecordMeeting() {
               </Button>
             </div>
           </div>
-          
-          <div className="mb-6">
-            <label htmlFor="meetingNotes" className="block text-sm font-medium text-neutral-700 mb-1">Pre-meeting Notes (Optional)</label>
-            <Textarea 
-              id="meetingNotes"
-              value={notes}
-              onChange={e => setNotes(e.target.value)}
-              placeholder="Add any context or agenda items for this meeting"
-              rows={3}
-            />
-          </div>
-          
-          <div className="bg-neutral-50 rounded-lg p-6 text-center">
-            <div id="recordingControls" className="mb-6">
-              <div className="flex justify-center space-x-4">
-                <Button
-                  onClick={handleToggleRecording}
-                  disabled={isProcessing}
-                  className={`rounded-full w-16 h-16 flex items-center justify-center shadow-lg ${
-                    isRecording ? "bg-neutral-600 hover:bg-neutral-700" : "bg-red-500 hover:bg-red-600"
-                  }`}
-                  aria-label={isRecording ? "Stop recording" : "Start recording"}
-                >
-                  <i className={`${isRecording ? "ri-stop-line" : "ri-mic-line"} text-2xl`}></i>
-                </Button>
+        </CardContent>
+      </Card>
+
+      {/* Content Input Tabs */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Meeting Content</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="record">
+                <i className="ri-mic-line mr-2"></i>
+                Record Audio
+              </TabsTrigger>
+              <TabsTrigger value="upload">
+                <i className="ri-upload-line mr-2"></i>
+                Upload File
+              </TabsTrigger>
+              <TabsTrigger value="text">
+                <i className="ri-edit-line mr-2"></i>
+                Input Text
+              </TabsTrigger>
+            </TabsList>
+
+            {/* Audio Recording Tab */}
+            <TabsContent value="record" className="mt-6">
+              <div className="bg-neutral-50 rounded-lg p-6 text-center">
+                <div className="mb-6">
+                  <div className="flex justify-center space-x-4">
+                    <Button
+                      onClick={handleToggleRecording}
+                      disabled={isProcessing}
+                      className={`rounded-full w-16 h-16 flex items-center justify-center shadow-lg ${
+                        isRecording ? "bg-neutral-600 hover:bg-neutral-700" : "bg-red-500 hover:bg-red-600"
+                      }`}
+                      aria-label={isRecording ? "Stop recording" : "Start recording"}
+                    >
+                      <i className={`${isRecording ? "ri-stop-line" : "ri-mic-line"} text-2xl`}></i>
+                    </Button>
+                    
+                    {isRecording && (
+                      <div className="flex items-center justify-center">
+                        <div className="recording-indicator mr-2 w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
+                        <span className="text-red-500 font-medium">{formatTime(recordingTime)}</span>
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-neutral-500 mt-3">
+                    {isRecording ? "Click to stop recording" : "Click to start recording"}
+                  </p>
+                </div>
                 
-                {isRecording && (
-                  <div className="flex items-center justify-center">
-                    <div className="recording-indicator mr-2 w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
-                    <span className="text-red-500 font-medium">{formatTime(recordingTime)}</span>
+                {(isRecording || audioBlob) && (
+                  <div className="mb-6">
+                    <Waveform isAnimating={isRecording} />
+                  </div>
+                )}
+                
+                {audioBlob && !isRecording && (
+                  <div className="mt-4">
+                    <Button onClick={handleSaveRecording} disabled={isProcessing} className="w-full">
+                      <i className="ri-save-line mr-2"></i>
+                      Process Recording
+                    </Button>
+                  </div>
+                )}
+
+                {isProcessing && (
+                  <div className="mt-4">
+                    <div className="flex items-center justify-center mb-2">
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary mr-2"></div>
+                      <span className="text-neutral-600">Processing audio...</span>
+                    </div>
+                    <Progress value={processingProgress} className="mb-4 h-2" />
                   </div>
                 )}
               </div>
-              <p className="text-neutral-500 mt-3">
-                {isRecording ? "Click to stop recording" : "Click to start recording"}
-              </p>
-            </div>
-            
-            {(isRecording || audioBlob) && (
-              <div className="mb-6">
-                <Waveform isAnimating={isRecording} />
-              </div>
-            )}
-            
-            {isProcessing && (
-              <div>
-                <div className="flex items-center justify-center mb-2">
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary mr-2"></div>
-                  <span className="text-neutral-600">Transcribing audio...</span>
+            </TabsContent>
+
+            {/* File Upload Tab */}
+            <TabsContent value="upload" className="mt-6">
+              <div className="bg-neutral-50 rounded-lg p-6 text-center">
+                <div className="mb-6">
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleFileUpload}
+                    accept=".mp3,.wav,.m4a,audio/*"
+                    className="hidden"
+                  />
+                  <Button
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isProcessing}
+                    className="w-full max-w-md"
+                  >
+                    <i className="ri-upload-cloud-line mr-2"></i>
+                    Choose Audio File
+                  </Button>
+                  <p className="text-sm text-neutral-500 mt-2">
+                    Supported formats: MP3, WAV, M4A
+                  </p>
                 </div>
-                <Progress value={processingProgress} className="mb-4 h-2" />
+
+                {uploadedFile && (
+                  <div className="bg-white rounded-lg p-4 mb-4">
+                    <div className="flex items-center justify-center mb-2">
+                      <i className="ri-file-music-line text-2xl text-primary mr-2"></i>
+                      <span className="font-medium">{uploadedFile.name}</span>
+                    </div>
+                    <p className="text-sm text-neutral-500">
+                      Size: {(uploadedFile.size / 1024 / 1024).toFixed(2)} MB
+                    </p>
+                    <Button 
+                      onClick={processUploadedFile} 
+                      disabled={isProcessing}
+                      className="w-full mt-4"
+                    >
+                      <i className="ri-play-line mr-2"></i>
+                      Process File
+                    </Button>
+                  </div>
+                )}
+
+                {isProcessing && (
+                  <div className="mt-4">
+                    <div className="flex items-center justify-center mb-2">
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary mr-2"></div>
+                      <span className="text-neutral-600">Processing file...</span>
+                    </div>
+                    <Progress value={processingProgress} className="mb-4 h-2" />
+                  </div>
+                )}
               </div>
-            )}
-          </div>
+            </TabsContent>
+
+            {/* Manual Text Input Tab */}
+            <TabsContent value="text" className="mt-6">
+              <div className="space-y-4">
+                <div>
+                  <label htmlFor="manualText" className="block text-sm font-medium text-neutral-700 mb-2">
+                    Meeting Content
+                  </label>
+                  <Textarea
+                    id="manualText"
+                    value={manualText}
+                    onChange={e => setManualText(e.target.value)}
+                    placeholder="Enter meeting transcript, notes, or discussion content here..."
+                    rows={12}
+                    className="w-full"
+                  />
+                  <p className="text-sm text-neutral-500 mt-1">
+                    Paste your meeting transcript or type the discussion content manually
+                  </p>
+                </div>
+
+                {manualText && (
+                  <div className="flex space-x-2">
+                    <Button 
+                      onClick={processManualText} 
+                      disabled={isProcessing || !manualText.trim()}
+                      className="flex-1"
+                    >
+                      <i className="ri-brain-line mr-2"></i>
+                      Analyze Content
+                    </Button>
+                    <Button 
+                      onClick={downloadTranscript} 
+                      variant="outline"
+                      disabled={!manualText.trim()}
+                    >
+                      <i className="ri-download-line mr-2"></i>
+                      Download
+                    </Button>
+                  </div>
+                )}
+
+                {isProcessing && (
+                  <div className="mt-4">
+                    <div className="flex items-center justify-center mb-2">
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary mr-2"></div>
+                      <span className="text-neutral-600">Analyzing content...</span>
+                    </div>
+                    <Progress value={processingProgress} className="mb-4 h-2" />
+                  </div>
+                )}
+              </div>
+            </TabsContent>
+          </Tabs>
         </CardContent>
       </Card>
       
-      <div className="flex justify-end space-x-3">
+      <div className="flex justify-end space-x-3 mt-6">
         <Button
           variant="outline"
           onClick={handleCancel}
           disabled={isProcessing}
         >
+          <i className="ri-close-line mr-2"></i>
           Cancel
-        </Button>
-        <Button
-          onClick={handleSaveRecording}
-          disabled={!audioBlob || isRecording || isProcessing}
-        >
-          Save Recording
         </Button>
       </div>
     </div>
