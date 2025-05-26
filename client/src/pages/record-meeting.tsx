@@ -31,6 +31,11 @@ export default function RecordMeeting() {
   const [manualText, setManualText] = useState("");
   const [transcriptText, setTranscriptText] = useState("");
   
+  // AI analysis results states
+  const [generatedSummary, setGeneratedSummary] = useState("");
+  const [generatedActionItems, setGeneratedActionItems] = useState<any[]>([]);
+  const [isGeneratingAnalysis, setIsGeneratingAnalysis] = useState(false);
+  
   const {
     audioBlob,
     isRecording,
@@ -140,15 +145,15 @@ export default function RecordMeeting() {
         onSuccess: (meeting) => {
           setMeetingId(meeting.id);
           setProcessingProgress(100);
+          setTranscriptText(transcript);
+
+          // 자동으로 AI 분석 시작
+          generateAIAnalysis(transcript);
 
           toast({
             title: "File uploaded successfully!",
             description: `파일이 저장되었습니다. 제목: "${title || generatedTitle}"`
           });
-
-          setTimeout(() => {
-            navigate(`/meetings/${meeting.id}`);
-          }, 1000);
         },
         onError: (error) => {
           throw error;
@@ -285,15 +290,49 @@ export default function RecordMeeting() {
     }
   };
 
-  // Generate summary and action items helper
-  const generateSummaryAndActions = async (meetingId: number) => {
+  // Generate AI analysis (summary and action items)
+  const generateAIAnalysis = async (transcript: string) => {
+    if (!transcript.trim()) return;
+    
+    setIsGeneratingAnalysis(true);
     try {
       // Generate summary
-      await apiRequest("POST", `/api/meetings/${meetingId}/summary`);
+      const summaryResponse = await fetch('/api/meetings/generate-summary-text', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ transcript })
+      });
+      
+      if (summaryResponse.ok) {
+        const summaryData = await summaryResponse.json();
+        setGeneratedSummary(summaryData.summary);
+      }
+
       // Generate action items
-      await apiRequest("POST", `/api/meetings/${meetingId}/action-items`);
+      const actionsResponse = await fetch('/api/meetings/generate-actions-text', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ transcript })
+      });
+      
+      if (actionsResponse.ok) {
+        const actionsData = await actionsResponse.json();
+        setGeneratedActionItems(actionsData.actionItems || []);
+      }
+
+      toast({
+        title: "AI 분석 완료",
+        description: "요약과 액션 아이템이 생성되었습니다.",
+      });
     } catch (error) {
-      console.error("Error generating summary or actions:", error);
+      console.error("Error generating AI analysis:", error);
+      toast({
+        title: "AI 분석 오류",
+        description: "분석 중 오류가 발생했습니다.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsGeneratingAnalysis(false);
     }
   };
 
@@ -670,6 +709,110 @@ export default function RecordMeeting() {
           </Tabs>
         </CardContent>
       </Card>
+
+      {/* AI Analysis Results */}
+      {(transcriptText || generatedSummary || generatedActionItems.length > 0) && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <i className="ri-brain-line mr-2"></i>
+              AI 분석 결과
+              {isGeneratingAnalysis && (
+                <div className="ml-3 flex items-center">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary mr-2"></div>
+                  <span className="text-sm text-gray-600">분석 중...</span>
+                </div>
+              )}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            
+            {/* Transcript Preview */}
+            {transcriptText && (
+              <div>
+                <h4 className="font-semibold mb-2 flex items-center">
+                  <i className="ri-file-text-line mr-2"></i>
+                  전사 내용
+                </h4>
+                <div className="bg-gray-50 p-4 rounded-lg max-h-32 overflow-y-auto">
+                  <p className="text-sm whitespace-pre-wrap">{transcriptText}</p>
+                </div>
+                <div className="mt-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => generateAIAnalysis(transcriptText)}
+                    disabled={isGeneratingAnalysis}
+                  >
+                    <i className="ri-refresh-line mr-2"></i>
+                    AI 분석 다시 실행
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Generated Summary */}
+            {generatedSummary && (
+              <div>
+                <h4 className="font-semibold mb-2 flex items-center">
+                  <i className="ri-article-line mr-2 text-blue-600"></i>
+                  AI 요약
+                </h4>
+                <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                  <p className="text-sm whitespace-pre-wrap">{generatedSummary}</p>
+                </div>
+              </div>
+            )}
+
+            {/* Generated Action Items */}
+            {generatedActionItems.length > 0 && (
+              <div>
+                <h4 className="font-semibold mb-2 flex items-center">
+                  <i className="ri-task-line mr-2 text-green-600"></i>
+                  AI 액션 아이템 ({generatedActionItems.length}개)
+                </h4>
+                <div className="space-y-2">
+                  {generatedActionItems.map((item: any, index: number) => (
+                    <div key={index} className="bg-green-50 p-3 rounded-lg border border-green-200">
+                      <div className="flex items-start">
+                        <div className="flex-1">
+                          <p className="text-sm font-medium">{item.text}</p>
+                          {item.assignee && (
+                            <p className="text-xs text-gray-600 mt-1">
+                              담당자: {item.assignee}
+                            </p>
+                          )}
+                          {item.dueDate && (
+                            <p className="text-xs text-gray-600 mt-1">
+                              마감일: {item.dueDate}
+                            </p>
+                          )}
+                        </div>
+                        <Badge variant="outline" className="ml-2">
+                          {item.completed ? "완료" : "대기"}
+                        </Badge>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Generate Analysis Button */}
+            {transcriptText && !generatedSummary && !isGeneratingAnalysis && (
+              <div className="text-center">
+                <Button 
+                  onClick={() => generateAIAnalysis(transcriptText)}
+                  className="bg-primary hover:bg-primary/90"
+                >
+                  <i className="ri-brain-line mr-2"></i>
+                  AI 분석 시작하기
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
       
       <div className="flex justify-end space-x-3 mt-6">
         <Button
