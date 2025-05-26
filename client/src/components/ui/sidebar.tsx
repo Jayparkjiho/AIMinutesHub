@@ -32,16 +32,14 @@ export function Sidebar({ className }: SidebarProps) {
         <ul>
           {navItems.map((item) => (
             <li key={item.href}>
-              <Link href={item.href}>
-                <a className={cn(
-                  "sidebar-link flex items-center px-4 py-3 text-neutral-600 hover:bg-neutral-100",
-                  (location === item.href || 
-                  (item.href !== "/" && location.startsWith(item.href))) && 
-                  "active bg-neutral-100 border-l-3 border-primary"
-                )}>
-                  <i className={cn(item.icon, "mr-3 text-lg")}></i>
-                  <span>{item.label}</span>
-                </a>
+              <Link href={item.href} className={cn(
+                "sidebar-link flex items-center px-4 py-3 text-neutral-600 hover:bg-neutral-100",
+                (location === item.href || 
+                (item.href !== "/" && location.startsWith(item.href))) && 
+                "active bg-neutral-100 border-l-3 border-primary"
+              )}>
+                <i className={cn(item.icon, "mr-3 text-lg")}></i>
+                <span>{item.label}</span>
               </Link>
             </li>
           ))}

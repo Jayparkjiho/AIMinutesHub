@@ -43,18 +43,17 @@ export function MobileHeader() {
             <ul>
               {navItems.map((item) => (
                 <li key={item.href}>
-                  <Link href={item.href}>
-                    <a 
-                      className={`flex items-center py-3 text-neutral-600 ${
-                        (location === item.href || 
-                        (item.href !== "/" && location.startsWith(item.href))) ? 
-                        "text-primary font-medium" : ""
-                      }`}
-                      onClick={() => setIsMenuOpen(false)}
-                    >
-                      <i className={`${item.icon} mr-3`}></i>
-                      <span>{item.label}</span>
-                    </a>
+                  <Link 
+                    href={item.href}
+                    className={`flex items-center py-3 text-neutral-600 ${
+                      (location === item.href || 
+                      (item.href !== "/" && location.startsWith(item.href))) ? 
+                      "text-primary font-medium" : ""
+                    }`}
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    <i className={`${item.icon} mr-3`}></i>
+                    <span>{item.label}</span>
                   </Link>
                 </li>
               ))}
