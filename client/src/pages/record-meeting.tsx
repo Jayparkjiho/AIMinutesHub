@@ -388,12 +388,19 @@ export default function RecordMeeting() {
       
       if (response.ok) {
         const data = await response.json();
-        setSeparatedTranscript(data.separatedTranscript);
-        
-        toast({
-          title: "화자 분리 완료",
-          description: "전사 내용에서 화자가 구분되었습니다.",
-        });
+        if (data.separatedTranscript) {
+          setSeparatedTranscript(data.separatedTranscript);
+          
+          toast({
+            title: "화자 분리 완료",
+            description: "전사 내용에서 화자가 구분되었습니다.",
+          });
+        } else {
+          throw new Error('No separated transcript received');
+        }
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Server error: ${response.status}`);
       }
     } catch (error) {
       console.error("Error separating speakers:", error);
