@@ -41,9 +41,28 @@ export async function transcribeAudio(audioBuffer: Buffer, originalName?: string
     // Write buffer to temporary file
     fs.writeFileSync(tempFilePath, audioBuffer);
     
-    // Create a readable stream for OpenAI with proper file metadata
+    // Check file stats and content before sending to OpenAI
+    const fileStats = fs.statSync(tempFilePath);
+    const fileHeader = audioBuffer.slice(0, 12); // Read first 12 bytes for file signature
+    console.log('File analysis:', {
+      size: fileStats.size,
+      path: tempFilePath,
+      exists: fs.existsSync(tempFilePath),
+      headerHex: fileHeader.toString('hex'),
+      headerAscii: fileHeader.toString('ascii')
+    });
+
+    // Create a readable stream for OpenAI with explicit filename
+    const fileStream = fs.createReadStream(tempFilePath);
+    
+    // Add filename property to the stream
+    Object.defineProperty(fileStream, 'name', {
+      value: path.basename(tempFilePath),
+      writable: false
+    });
+
     const transcription = await openai.audio.transcriptions.create({
-      file: fs.createReadStream(tempFilePath) as any,
+      file: fileStream as any,
       model: "whisper-1",
       response_format: "text",
     });
