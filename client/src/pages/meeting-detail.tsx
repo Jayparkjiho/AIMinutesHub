@@ -37,6 +37,9 @@ export default function MeetingDetail() {
         await indexedDBStorage.init();
         const meetingData = await indexedDBStorage.getMeeting(parseInt(id));
         if (meetingData) {
+          console.log('Meeting data loaded:', meetingData);
+          console.log('Summary exists:', !!meetingData.summary);
+          console.log('Summary content:', meetingData.summary);
           setMeeting(meetingData);
         } else {
           setIsError(true);

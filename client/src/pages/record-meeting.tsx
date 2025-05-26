@@ -331,6 +331,7 @@ export default function RecordMeeting() {
       // 기존 회의가 있으면 AI 분석 결과로 업데이트
       if (meetingId && (summary || actionItems.length > 0)) {
         try {
+          console.log('Updating meeting with AI analysis:', { meetingId, summary, actionItems });
           await indexedDBStorage.init();
           const existingMeeting = await indexedDBStorage.getMeeting(meetingId);
           
@@ -341,6 +342,7 @@ export default function RecordMeeting() {
               actionItems: actionItems.length > 0 ? actionItems : existingMeeting.actionItems
             };
             
+            console.log('Updated meeting data:', updatedMeeting);
             await indexedDBStorage.updateMeeting(meetingId, updatedMeeting);
             
             toast({
