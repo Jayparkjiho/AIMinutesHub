@@ -152,7 +152,7 @@ export default function RecordMeeting() {
       setProcessingProgress(30);
 
       // Create meeting with transcript in IndexedDB
-      const meeting = await saveMeeting({
+      saveMeeting({
         title: title || "Untitled Meeting",
         tags,
         notes,
@@ -160,19 +160,24 @@ export default function RecordMeeting() {
         date: new Date().toISOString(),
         duration: 0,
         userId: 1
-      });
-      
-      setMeetingId(meeting.id);
-      setProcessingProgress(100);
+      }, {
+        onSuccess: (meeting) => {
+          setMeetingId(meeting.id);
+          setProcessingProgress(100);
 
-      toast({
-        title: "Meeting saved!",
-        description: "Your meeting content has been saved successfully."
-      });
+          toast({
+            title: "Meeting saved!",
+            description: "Your meeting content has been saved successfully."
+          });
 
-      setTimeout(() => {
-        navigate(`/meetings/${meeting.id}`);
-      }, 1000);
+          setTimeout(() => {
+            navigate(`/meetings/${meeting.id}`);
+          }, 1000);
+        },
+        onError: (error) => {
+          throw error;
+        }
+      });
 
     } catch (error: any) {
       toast({
