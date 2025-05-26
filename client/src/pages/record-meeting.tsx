@@ -296,6 +296,9 @@ export default function RecordMeeting() {
     
     setIsGeneratingAnalysis(true);
     try {
+      let summary = "";
+      let actionItems: any[] = [];
+
       // Generate summary
       const summaryResponse = await fetch('/api/meetings/generate-summary-text', {
         method: 'POST',
@@ -305,7 +308,8 @@ export default function RecordMeeting() {
       
       if (summaryResponse.ok) {
         const summaryData = await summaryResponse.json();
-        setGeneratedSummary(summaryData.summary);
+        summary = summaryData.summary;
+        setGeneratedSummary(summary);
       }
 
       // Generate action items
@@ -317,13 +321,44 @@ export default function RecordMeeting() {
       
       if (actionsResponse.ok) {
         const actionsData = await actionsResponse.json();
-        setGeneratedActionItems(actionsData.actionItems || []);
+        actionItems = actionsData.actionItems || [];
+        setGeneratedActionItems(actionItems);
       }
 
-      toast({
-        title: "AI 분석 완료",
-        description: "요약과 액션 아이템이 생성되었습니다.",
-      });
+      // 기존 회의가 있으면 AI 분석 결과로 업데이트
+      if (meetingId && (summary || actionItems.length > 0)) {
+        try {
+          await indexedDBStorage.init();
+          const existingMeeting = await indexedDBStorage.getMeeting(meetingId);
+          
+          if (existingMeeting) {
+            const updatedMeeting = {
+              ...existingMeeting,
+              summary: summary || existingMeeting.summary,
+              actionItems: actionItems.length > 0 ? actionItems : existingMeeting.actionItems
+            };
+            
+            await indexedDBStorage.updateMeeting(meetingId, updatedMeeting);
+            
+            toast({
+              title: "AI 분석 완료",
+              description: "요약과 액션 아이템이 생성되어 저장되었습니다.",
+            });
+          }
+        } catch (updateError) {
+          console.error("Error updating meeting with AI analysis:", updateError);
+          toast({
+            title: "AI 분석 완료",
+            description: "분석은 완료되었지만 저장 중 오류가 발생했습니다.",
+            variant: "destructive"
+          });
+        }
+      } else {
+        toast({
+          title: "AI 분석 완료",
+          description: "요약과 액션 아이템이 생성되었습니다.",
+        });
+      }
     } catch (error) {
       console.error("Error generating AI analysis:", error);
       toast({
