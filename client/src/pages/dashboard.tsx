@@ -1,5 +1,7 @@
+import { useState } from "react";
 import { Link } from "wouter";
 import { MeetingCard } from "@/components/MeetingCard";
+import { MeetingDetailModal } from "@/components/MeetingDetailModal";
 import { RecordingRow } from "@/components/RecordingRow";
 import { Meeting, MeetingStat } from "@/lib/types";
 import { useIndexedDBMeetings } from "@/hooks/use-indexeddb";
@@ -8,6 +10,27 @@ export default function Dashboard() {
   // Fetch meetings from IndexedDB
   const { meetings, isLoading } = useIndexedDBMeetings();
   const isError = false;
+
+  // Modal state
+  const [selectedMeeting, setSelectedMeeting] = useState<Meeting | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // Handle meeting click
+  const handleMeetingClick = (meeting: Meeting) => {
+    setSelectedMeeting(meeting);
+    setIsModalOpen(true);
+  };
+
+  // Handle modal close
+  const handleModalClose = () => {
+    setIsModalOpen(false);
+    setSelectedMeeting(null);
+  };
+
+  // Handle meeting deletion
+  const handleDeleteSuccess = () => {
+    handleModalClose();
+  };
 
   // Calculate stats from meetings
   const stats: MeetingStat = {
@@ -133,7 +156,9 @@ export default function Dashboard() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {recentMeetings.map(meeting => (
-              <MeetingCard key={meeting.id} meeting={meeting} />
+              <div key={meeting.id} onClick={() => handleMeetingClick(meeting)} className="cursor-pointer">
+                <MeetingCard meeting={meeting} onDeleteSuccess={handleDeleteSuccess} />
+              </div>
             ))}
           </div>
         )}
@@ -190,6 +215,14 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
+      {/* Meeting Detail Modal */}
+      <MeetingDetailModal
+        meeting={selectedMeeting}
+        isOpen={isModalOpen}
+        onClose={handleModalClose}
+        onDeleteSuccess={handleDeleteSuccess}
+      />
     </div>
   );
 }
