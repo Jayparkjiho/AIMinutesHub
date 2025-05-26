@@ -53,9 +53,12 @@ export async function transcribeAudio(audioBuffer: Buffer, originalName?: string
     });
 
     // Check for 3GP format and convert extension to mp4
-    const headerStr = fileHeader.toString('ascii');
-    if (headerStr.includes('ftyp3gp') || headerStr.includes('3gp')) {
-      console.log('Detected 3GP format, changing extension to .mp4');
+    const headerHex = fileHeader.toString('hex');
+    console.log('Checking header for 3GP format:', headerHex);
+    
+    // Check for 3GP4 signature: 66747970 33677034 (ftyp3gp4)
+    if (headerHex.includes('66747970') && headerHex.includes('33677034')) {
+      console.log('Detected 3GP4 format, changing extension to .mp4');
       // Create new file with mp4 extension
       const mp4FileName = fileName.replace(/\.[^.]+$/, '.mp4');
       const mp4TempFilePath = path.join(tempDir, mp4FileName);
