@@ -1,11 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Meeting } from "@/lib/types";
-import { RecordingRow } from "@/components/RecordingRow";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Link } from "wouter";
 import { useIndexedDBMeetings } from "@/hooks/use-indexeddb";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { formatDuration } from "@/hooks/use-audio-recorder";
 
 export default function AllMeetings() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -93,56 +95,103 @@ export default function AllMeetings() {
         </div>
       </div>
       
-      {/* Meetings table */}
-      <div className="bg-white rounded-lg border border-neutral-200 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="bg-neutral-50 border-b border-neutral-200 text-left">
-                <th className="px-4 py-3 text-xs font-medium text-neutral-500 uppercase tracking-wider">Title</th>
-                <th className="px-4 py-3 text-xs font-medium text-neutral-500 uppercase tracking-wider">Date</th>
-                <th className="px-4 py-3 text-xs font-medium text-neutral-500 uppercase tracking-wider">Duration</th>
-                <th className="px-4 py-3 text-xs font-medium text-neutral-500 uppercase tracking-wider">Tags</th>
-                <th className="px-4 py-3 text-xs font-medium text-neutral-500 uppercase tracking-wider">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-neutral-200">
-              {isLoading ? (
-                <tr>
-                  <td colSpan={5} className="px-4 py-6 text-center text-neutral-500">
-                    <div className="flex justify-center">
-                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
-                    </div>
-                    <p className="mt-2">Loading meetings...</p>
-                  </td>
-                </tr>
-              ) : isError ? (
-                <tr>
-                  <td colSpan={5} className="px-4 py-6 text-center text-red-500">
-                    <i className="ri-error-warning-line text-xl"></i>
-                    <p className="mt-2">Error loading meetings. Please try again.</p>
-                  </td>
-                </tr>
-              ) : filteredMeetings?.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="px-4 py-6 text-center text-neutral-500">
-                    <i className="ri-file-search-line text-xl"></i>
-                    <p className="mt-2">No meetings found. Try different search terms or filters.</p>
-                  </td>
-                </tr>
-              ) : (
-                filteredMeetings?.map(meeting => (
-                  <RecordingRow 
-                    key={meeting.id} 
-                    recording={meeting} 
-                    onDeleteSuccess={() => {}}
-                  />
-                ))
-              )}
-            </tbody>
-          </table>
+      {/* Meetings Grid */}
+      {isLoading ? (
+        <div className="text-center py-12">
+          <div className="flex justify-center mb-4">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          </div>
+          <p className="text-neutral-500">Loading meetings...</p>
         </div>
-      </div>
+      ) : isError ? (
+        <div className="text-center py-12 text-red-500">
+          <i className="ri-error-warning-line text-2xl mb-2 block"></i>
+          <p>Error loading meetings. Please try again.</p>
+        </div>
+      ) : filteredMeetings?.length === 0 ? (
+        <div className="text-center py-12 text-neutral-500">
+          <i className="ri-file-search-line text-2xl mb-2 block"></i>
+          <p>No meetings found. Try different search terms or filters.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredMeetings?.map(meeting => (
+            <Card key={meeting.id} className="hover:shadow-lg transition-shadow duration-200">
+              <CardHeader className="pb-3">
+                <div className="flex items-start justify-between">
+                  <CardTitle className="text-lg font-semibold text-neutral-800 line-clamp-2">
+                    {meeting.title}
+                  </CardTitle>
+                  <div className="flex items-center text-xs text-neutral-500 ml-2">
+                    <i className="ri-time-line mr-1"></i>
+                    {formatDuration(meeting.duration)}
+                  </div>
+                </div>
+                <div className="flex items-center text-sm text-neutral-500 mt-1">
+                  <i className="ri-calendar-line mr-1"></i>
+                  {new Date(meeting.date).toLocaleDateString('ko-KR')}
+                </div>
+              </CardHeader>
+              <CardContent>
+                {/* Summary Preview */}
+                {meeting.summary && (
+                  <div className="mb-4">
+                    <p className="text-sm text-neutral-600 line-clamp-3">
+                      {meeting.summary}
+                    </p>
+                  </div>
+                )}
+                
+                {/* Tags */}
+                {meeting.tags && meeting.tags.length > 0 && (
+                  <div className="mb-4">
+                    <div className="flex flex-wrap gap-1">
+                      {meeting.tags.slice(0, 3).map(tag => (
+                        <Badge key={tag} variant="secondary" className="text-xs">
+                          {tag}
+                        </Badge>
+                      ))}
+                      {meeting.tags.length > 3 && (
+                        <Badge variant="outline" className="text-xs">
+                          +{meeting.tags.length - 3}
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                )}
+                
+                {/* Action Items Count */}
+                {meeting.actionItems && meeting.actionItems.length > 0 && (
+                  <div className="mb-4 text-sm text-neutral-600">
+                    <i className="ri-task-line mr-1"></i>
+                    {meeting.actionItems.length}개의 액션 아이템
+                  </div>
+                )}
+                
+                {/* Actions */}
+                <div className="flex gap-2 pt-2">
+                  <Link href={`/meetings/${meeting.id}`} className="flex-1">
+                    <Button size="sm" className="w-full">
+                      <i className="ri-eye-line mr-1"></i>
+                      상세보기
+                    </Button>
+                  </Link>
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    onClick={() => {
+                      // Delete functionality - you can implement this
+                      console.log('Delete meeting:', meeting.id);
+                    }}
+                  >
+                    <i className="ri-delete-bin-line"></i>
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
