@@ -6,10 +6,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useAudioRecorder, formatTime } from "@/hooks/use-audio-recorder";
 import { indexedDBStorage } from "@/lib/indexeddb";
 import { queryClient } from "@/lib/queryClient";
+import { EmailService, EmailTemplate } from "@/lib/email-service";
 import { useLocation } from "wouter";
 
 const Waveform = ({ isAnimating }: { isAnimating: boolean }) => (
