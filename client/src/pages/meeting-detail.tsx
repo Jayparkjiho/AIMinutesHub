@@ -274,11 +274,11 @@ export default function MeetingDetail() {
             variant="outline" 
             onClick={() => {
               const encodedData = encodeURIComponent(JSON.stringify(meeting));
-              navigate(`/email-sender?meetingData=${encodedData}`);
+              navigate(`/gmail-sender?meetingData=${encodedData}`);
             }}
           >
             <i className="ri-mail-send-line mr-2"></i>
-            이메일 발송
+            Gmail 발송
           </Button>
           <Button 
             variant="destructive" 

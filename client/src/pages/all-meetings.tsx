@@ -256,11 +256,11 @@ export default function AllMeetings() {
                     variant="outline"
                     onClick={() => {
                       const encodedData = encodeURIComponent(JSON.stringify(meeting));
-                      navigate(`/email-sender?meetingData=${encodedData}`);
+                      navigate(`/gmail-sender?meetingData=${encodedData}`);
                     }}
                   >
                     <i className="ri-mail-send-line mr-1"></i>
-                    이메일 발송
+                    Gmail 발송
                   </Button>
                   <Button 
                     size="sm" 

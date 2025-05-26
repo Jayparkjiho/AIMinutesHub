@@ -119,6 +119,12 @@ export function useIndexedDBPreferences() {
     loadPreferences();
   }, []);
 
+  // Get preference
+  const getPreference = async (key: string) => {
+    await indexedDBStorage.init();
+    return indexedDBStorage.getPreference(key);
+  };
+
   // Save preference
   const savePreference = async (key: string, value: any) => {
     await indexedDBStorage.init();
@@ -128,6 +134,7 @@ export function useIndexedDBPreferences() {
 
   return {
     preferences,
+    getPreference,
     savePreference,
   };
 }
