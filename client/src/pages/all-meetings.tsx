@@ -5,20 +5,14 @@ import { RecordingRow } from "@/components/RecordingRow";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Link } from "wouter";
+import { useIndexedDBMeetings } from "@/hooks/use-indexeddb";
 
 export default function AllMeetings() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTag, setSelectedTag] = useState("All Tags");
+  const { meetings, isLoading } = useIndexedDBMeetings();
   
-  // Fetch all meetings
-  const { 
-    data: meetings, 
-    isLoading, 
-    isError, 
-    refetch 
-  } = useQuery<Meeting[]>({
-    queryKey: ["/api/meetings"],
-  });
+  const isError = false; // IndexedDB doesn't have loading errors in this context
   
   // Filter meetings based on search query and selected tag
   const filteredMeetings = meetings?.filter(meeting => {
@@ -141,7 +135,7 @@ export default function AllMeetings() {
                   <RecordingRow 
                     key={meeting.id} 
                     recording={meeting} 
-                    onDeleteSuccess={refetch}
+                    onDeleteSuccess={() => {}}
                   />
                 ))
               )}

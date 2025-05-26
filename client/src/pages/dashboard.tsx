@@ -1,25 +1,19 @@
-import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { MeetingCard } from "@/components/MeetingCard";
 import { RecordingRow } from "@/components/RecordingRow";
 import { Meeting, MeetingStat } from "@/lib/types";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { useIndexedDBMeetings } from "@/hooks/use-indexeddb";
 
 export default function Dashboard() {
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTag, setSelectedTag] = useState("All Tags");
 
-  // Fetch meetings
-  const { 
-    data: meetings, 
-    isLoading, 
-    isError, 
-    refetch 
-  } = useQuery<Meeting[]>({
-    queryKey: ["/api/meetings"],
-  });
+  // Fetch meetings from IndexedDB
+  const { meetings, isLoading } = useIndexedDBMeetings();
+  const isError = false;
 
   // Calculate stats from meetings
   const stats: MeetingStat = {
@@ -237,7 +231,7 @@ export default function Dashboard() {
                     <RecordingRow 
                       key={recording.id} 
                       recording={recording} 
-                      onDeleteSuccess={refetch}
+                      onDeleteSuccess={() => {}}
                     />
                   ))
                 )}
