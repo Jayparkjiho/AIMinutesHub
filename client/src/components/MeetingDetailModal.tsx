@@ -1,12 +1,11 @@
-import { Meeting } from "@/lib/types";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { useState } from "react";
+import { useLocation } from "wouter";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { formatDuration } from "@/hooks/use-audio-recorder";
-import { useLocation } from "wouter";
+import { Meeting } from "@/lib/types";
 import { useIndexedDBMeetings } from "@/hooks/use-indexeddb";
 import { useToast } from "@/hooks/use-toast";
-import { useState } from "react";
 
 interface MeetingDetailModalProps {
   meeting: Meeting | null;
@@ -34,25 +33,21 @@ export function MeetingDetailModal({ meeting, isOpen, onClose, onDeleteSuccess }
     if (!window.confirm(`정말로 "${meeting.title}" 회의를 삭제하시겠습니까?`)) {
       return;
     }
-    
+
     setIsDeleting(true);
-    
     try {
       await deleteMeeting(meeting.id);
       toast({
-        title: "회의 삭제 완료",
-        description: `"${meeting.title}" 회의가 삭제되었습니다.`,
+        title: "삭제 완료",
+        description: "회의가 성공적으로 삭제되었습니다.",
       });
-      
+      onDeleteSuccess?.();
       onClose();
-      if (onDeleteSuccess) {
-        onDeleteSuccess();
-      }
-    } catch (error: any) {
+    } catch (error) {
       toast({
-        title: "삭제 오류",
-        description: error?.message || "회의 삭제 중 오류가 발생했습니다.",
-        variant: "destructive",
+        title: "삭제 실패",
+        description: "회의 삭제 중 오류가 발생했습니다.",
+        variant: "destructive"
       });
     } finally {
       setIsDeleting(false);
@@ -61,21 +56,22 @@ export function MeetingDetailModal({ meeting, isOpen, onClose, onDeleteSuccess }
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
-        <DialogHeader>
-          <DialogTitle className="text-xl font-semibold text-gray-900">
-            {meeting.title}
-          </DialogTitle>
-          <DialogDescription className="sr-only">
-            회의 상세 정보를 확인할 수 있습니다.
-          </DialogDescription>
-          
-          {/* Meeting Info */}
-          <div className="grid grid-cols-3 gap-6 text-sm mt-4">
+      <DialogContent className="max-w-4xl max-h-[90vh] p-0 overflow-hidden">
+        <DialogHeader className="px-6 py-4 border-b">
+          <DialogTitle className="text-xl font-bold">{meeting.title}</DialogTitle>
+          <div className="flex flex-wrap gap-4 mt-2 text-sm">
             <div className="flex items-center text-gray-600">
               <i className="ri-calendar-line mr-2"></i>
-              <span className="font-medium">날짜:</span>
-              <span className="ml-1">{new Date(meeting.date).toLocaleDateString('ko-KR')}</span>
+              <span>{new Date(meeting.date).toLocaleDateString('ko-KR', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                weekday: 'long'
+              })}</span>
+            </div>
+            <div className="flex items-center text-gray-600">
+              <i className="ri-time-line mr-2"></i>
+              <span>{Math.floor(meeting.duration / 60)}분 {meeting.duration % 60}초</span>
             </div>
             <div className="flex items-center text-gray-600">
               <i className="ri-user-line mr-2"></i>
@@ -93,16 +89,20 @@ export function MeetingDetailModal({ meeting, isOpen, onClose, onDeleteSuccess }
         <div className="flex-1 overflow-y-auto px-6">
           <div className="space-y-6 pb-6">
             {/* Summary Section */}
-            {meeting.summary && (
-              <div>
-                <h3 className="text-lg font-semibold mb-3">회의 요약</h3>
-                <div className="bg-gray-50 rounded-lg p-4">
+            <div>
+              <h3 className="text-lg font-semibold mb-3">회의 요약</h3>
+              <div className="bg-gray-50 rounded-lg p-4">
+                {meeting.summary && meeting.summary.trim() ? (
                   <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">
                     {meeting.summary}
                   </p>
-                </div>
+                ) : (
+                  <p className="text-gray-500 italic">
+                    AI 요약이 생성되지 않았습니다. 녹음 페이지에서 "AI 분석" 버튼을 클릭하여 요약을 생성하세요.
+                  </p>
+                )}
               </div>
-            )}
+            </div>
 
             {/* Participants Section */}
             {meeting.participants && meeting.participants.length > 0 && (
@@ -124,78 +124,71 @@ export function MeetingDetailModal({ meeting, isOpen, onClose, onDeleteSuccess }
             )}
 
             {/* Action Items Section */}
-            {meeting.actionItems && meeting.actionItems.length > 0 && (
-              <div>
-                <h3 className="text-lg font-semibold mb-3">액션 아이템 논의사항</h3>
-                <div className="space-y-3">
-                  {meeting.actionItems.map((item, index) => (
-                    <div key={item.id} className="border-l-4 border-blue-400 bg-blue-50 p-4 rounded-r-lg">
-                      <h4 className="font-medium text-blue-900 mb-2">
-                        AI 추천 알고리즘 도입
-                      </h4>
-                      <p className="text-sm text-blue-800 mb-3">
-                        {item.text}
-                      </p>
-                      
-                      <div className="space-y-2">
-                        <div>
-                          <span className="font-medium text-blue-900">결정사항:</span>
-                          <ul className="list-disc list-inside ml-4 text-sm text-blue-800">
-                            <li>초기에는 간단한 룰 기반으로 시작</li>
-                            <li>추후 강화학습 접대로 발전</li>
-                          </ul>
-                        </div>
-                        
-                        <div className="flex items-center">
-                          <span className="font-medium text-blue-900 mr-2">액션 아이템:</span>
-                          <div className="flex items-center space-x-4">
-                            <Badge variant="outline" className="bg-white">
-                              {item.assignee || '박개발'} - 추천 시스템 초기 구현 작업
-                            </Badge>
-                            <span className="text-sm text-blue-700">
-                              {item.dueDate || '이번 주'}
-                            </span>
-                          </div>
+            <div>
+              <h3 className="text-lg font-semibold mb-3">액션 아이템</h3>
+              <div className="bg-gray-50 rounded-lg p-4">
+                {meeting.actionItems && meeting.actionItems.length > 0 ? (
+                  <div className="space-y-3">
+                    {meeting.actionItems.map((item) => (
+                      <div key={item.id} className="flex items-start space-x-3 bg-white border rounded-lg p-3">
+                        <div className={`w-4 h-4 rounded-full border-2 mt-1 ${
+                          item.completed ? 'bg-green-500 border-green-500' : 'border-gray-300'
+                        }`} />
+                        <div className="flex-1">
+                          <p className={`${item.completed ? 'line-through text-gray-500' : 'text-gray-900'}`}>
+                            {item.text}
+                          </p>
+                          {item.assignee && (
+                            <p className="text-sm text-gray-500 mt-1">담당자: {item.assignee}</p>
+                          )}
+                          {item.dueDate && (
+                            <p className="text-sm text-gray-500 mt-1">마감일: {item.dueDate}</p>
+                          )}
                         </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* AI 요약 Section */}
-            <div>
-              <h3 className="text-lg font-semibold mb-3">AI 요약</h3>
-              <div className="border-l-4 border-blue-400 bg-blue-50 p-4 rounded-r-lg">
-                <p className="text-sm text-blue-800 leading-relaxed whitespace-pre-wrap">
-                  {meeting.summary || "AI 요약이 아직 생성되지 않았습니다. 회의록 페이지에서 'AI 분석 다시 실행' 버튼을 클릭하여 요약을 생성해보세요."}
-                </p>
-              </div>
-            </div>
-
-            {/* Next Meeting Section */}
-            <div>
-              <h3 className="text-lg font-semibold mb-3">다음 회의</h3>
-              <div className="bg-gray-50 rounded-lg p-4 space-y-2">
-                <div className="flex items-center text-sm">
-                  <span className="font-medium text-gray-700 w-12">일시:</span>
-                  <span className="text-gray-600">미정</span>
-                </div>
-                <div className="flex items-center text-sm">
-                  <span className="font-medium text-gray-700 w-12">안건:</span>
-                  <span className="text-gray-600">미정</span>
-                </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-gray-500 italic">
+                    액션 아이템이 생성되지 않았습니다. 녹음 페이지에서 "AI 분석" 버튼을 클릭하여 액션 아이템을 생성하세요.
+                  </p>
+                )}
               </div>
             </div>
 
             {/* Transcript Section */}
             {meeting.transcript && (
               <div>
-                <h3 className="text-lg font-semibold mb-3">원본 내용</h3>
-                <div className="bg-gray-50 rounded-lg p-4 max-h-60 overflow-y-auto">
-                  <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">
+                <h3 className="text-lg font-semibold mb-3">회의 전문</h3>
+                <div className="bg-gray-50 rounded-lg p-4 max-h-64 overflow-y-auto">
+                  <p className="text-gray-700 leading-relaxed whitespace-pre-wrap text-sm">
                     {meeting.transcript}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Tags Section */}
+            {meeting.tags && meeting.tags.length > 0 && (
+              <div>
+                <h3 className="text-lg font-semibold mb-3">태그</h3>
+                <div className="flex flex-wrap gap-2">
+                  {meeting.tags.map((tag, index) => (
+                    <Badge key={index} variant="secondary">
+                      {tag}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Notes Section */}
+            {meeting.notes && (
+              <div>
+                <h3 className="text-lg font-semibold mb-3">노트</h3>
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">
+                    {meeting.notes}
                   </p>
                 </div>
               </div>
@@ -204,19 +197,34 @@ export function MeetingDetailModal({ meeting, isOpen, onClose, onDeleteSuccess }
         </div>
 
         {/* Footer Actions */}
-        <div className="flex justify-between items-center p-6 pt-4 border-t">
+        <div className="px-6 py-4 border-t bg-gray-50 flex gap-3 justify-end">
+          <Button variant="outline" onClick={onClose}>
+            닫기
+          </Button>
+          <Button 
+            variant="outline" 
+            onClick={handleEmailSend}
+            className="bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200"
+          >
+            <i className="ri-mail-send-line mr-2"></i>
+            Gmail 발송
+          </Button>
           <Button 
             variant="destructive" 
             onClick={handleDelete}
             disabled={isDeleting}
           >
-            <i className="ri-delete-bin-line mr-2"></i>
-            {isDeleting ? "삭제 중..." : "삭제"}
-          </Button>
-          
-          <Button onClick={handleEmailSend}>
-            <i className="ri-mail-send-line mr-2"></i>
-            이메일 발송
+            {isDeleting ? (
+              <>
+                <i className="ri-loader-4-line mr-2 animate-spin"></i>
+                삭제 중...
+              </>
+            ) : (
+              <>
+                <i className="ri-delete-bin-line mr-2"></i>
+                삭제
+              </>
+            )}
           </Button>
         </div>
       </DialogContent>
