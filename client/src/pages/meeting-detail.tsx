@@ -263,6 +263,15 @@ export default function MeetingDetail() {
         <div className="flex gap-2">
           <Button 
             variant="outline" 
+            onClick={() => {
+              window.location.reload();
+            }}
+          >
+            <i className="ri-refresh-line mr-2"></i>
+            새로고침
+          </Button>
+          <Button 
+            variant="outline" 
             onClick={() => navigate(`/meetings/${meeting.id}/email`)}
           >
             Send Email
