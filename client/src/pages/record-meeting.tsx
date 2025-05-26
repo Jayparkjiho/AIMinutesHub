@@ -574,8 +574,7 @@ export default function RecordMeeting() {
           const response = await apiRequest("POST", "/api/meetings", {
             title: title || "Untitled Meeting",
             tags: tags,
-            notes: notes || "",
-            duration: 0
+            notes: notes || ""
           });
           setMeetingId(response.id);
         } catch (error: any) {

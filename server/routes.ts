@@ -6,7 +6,8 @@ import {
   createMeetingSchema, 
   updateMeetingSchema, 
   insertMeetingSchema,
-  type Meeting
+  type Meeting,
+  type InsertMeeting
 } from "@shared/schema";
 import multer from "multer";
 import { transcribeAudio, generateSummary, extractActionItems, identifyParticipants, generateMeetingTitle } from "./openai";
@@ -57,13 +58,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create a new meeting
   app.post("/api/meetings", async (req: Request, res: Response) => {
     try {
-      const validatedData = insertMeetingSchema.parse({
-        ...req.body,
+      // Validate with createMeetingSchema first
+      const validatedInput = createMeetingSchema.parse(req.body);
+      
+      // Create the full meeting data for storage
+      const meetingData: InsertMeeting = {
+        title: validatedInput.title,
+        tags: validatedInput.tags,
+        notes: validatedInput.notes || "",
         userId: 1, // Demo user
-        date: new Date().toISOString()
-      });
+        date: new Date(),
+        duration: 0,
+        transcript: null,
+        summary: null,
+        audioUrl: null,
+        participants: [],
+        actionItems: []
+      };
 
-      const meeting = await storage.createMeeting(validatedData);
+      const meeting = await storage.createMeeting(meetingData);
       res.status(201).json(meeting);
     } catch (error: any) {
       if (error instanceof z.ZodError) {
