@@ -106,9 +106,12 @@ export default function RecordMeeting() {
 
       // Upload file for transcription
       const formData = new FormData();
-      formData.append('audio', uploadedFile);
+      formData.append('audio', uploadedFile, uploadedFile.name);
 
-      const transcribeResponse = await apiRequest("POST", `/api/meetings/${newMeetingId}/record`, formData);
+      const transcribeResponse = await fetch(`/api/meetings/${newMeetingId}/record`, {
+        method: 'POST',
+        body: formData
+      });
       const transcribeResult = await transcribeResponse.json();
       setTranscriptText(transcribeResult.transcript);
       setProcessingProgress(70);
@@ -264,7 +267,10 @@ export default function RecordMeeting() {
       formData.append("audio", audioBlob, "recording.wav");
       
       setProcessingProgress(30);
-      const uploadResponse = await apiRequest("POST", `/api/meetings/${meetingId}/record`, formData);
+      const uploadResponse = await fetch(`/api/meetings/${meetingId}/record`, {
+        method: 'POST',
+        body: formData
+      });
       const uploadResult = await uploadResponse.json();
       
       setProcessingProgress(60);
