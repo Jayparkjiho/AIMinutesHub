@@ -272,9 +272,13 @@ export default function MeetingDetail() {
           </Button>
           <Button 
             variant="outline" 
-            onClick={() => navigate(`/meetings/${meeting.id}/email`)}
+            onClick={() => {
+              const encodedData = encodeURIComponent(JSON.stringify(meeting));
+              navigate(`/email-sender?meetingData=${encodedData}`);
+            }}
           >
-            Send Email
+            <i className="ri-mail-send-line mr-2"></i>
+            이메일 발송
           </Button>
           <Button 
             variant="destructive" 

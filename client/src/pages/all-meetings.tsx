@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { formatDuration } from "@/hooks/use-audio-recorder";
 import { MeetingDetailModal } from "@/components/MeetingDetailModal";
 import { useToast } from "@/hooks/use-toast";
+import { useLocation } from "wouter";
 
 export default function AllMeetings() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -18,6 +19,7 @@ export default function AllMeetings() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const { meetings, isLoading, deleteMeeting } = useIndexedDBMeetings();
   const { toast } = useToast();
+  const [, navigate] = useLocation();
   
   const isError = false; // IndexedDB doesn't have loading errors in this context
   
@@ -253,8 +255,8 @@ export default function AllMeetings() {
                     size="sm" 
                     variant="outline"
                     onClick={() => {
-                      // Send email functionality
-                      console.log('Send email for meeting:', meeting.id);
+                      const encodedData = encodeURIComponent(JSON.stringify(meeting));
+                      navigate(`/email-sender?meetingData=${encodedData}`);
                     }}
                   >
                     <i className="ri-mail-send-line mr-1"></i>
