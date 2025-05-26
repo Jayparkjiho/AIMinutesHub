@@ -6,16 +6,19 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 // Transcribe audio file
 export async function transcribeAudio(audioBuffer: Buffer): Promise<{ text: string, duration: number }> {
   try {
+    // Create a File object from buffer
+    const audioFile = new File([audioBuffer], 'audio.wav', { type: 'audio/wav' });
+    
     const transcription = await openai.audio.transcriptions.create({
-      file: new Blob([audioBuffer], { type: 'audio/webm' }),
+      file: audioFile,
       model: "whisper-1",
     });
 
     return {
       text: transcription.text,
-      duration: transcription.duration || 0,
+      duration: 0, // Duration is not available from OpenAI API response
     };
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error transcribing audio:", error);
     throw new Error(`Failed to transcribe audio: ${error.message}`);
   }
@@ -39,7 +42,7 @@ export async function generateSummary(transcript: string): Promise<string> {
     });
 
     return response.choices[0].message.content || "Unable to generate summary";
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error generating summary:", error);
     throw new Error(`Failed to generate summary: ${error.message}`);
   }

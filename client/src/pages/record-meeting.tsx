@@ -294,7 +294,7 @@ export default function RecordMeeting() {
       });
       
       // Navigate to the meeting detail page
-      navigate(`/meeting/${meetingId}`);
+      navigate(`/meetings/${meetingId}`);
     } catch (error: any) {
       toast({
         title: "Error processing recording",

@@ -19,8 +19,8 @@ function Router() {
     <Switch>
       <Route path="/" component={Dashboard} />
       <Route path="/record" component={RecordMeeting} />
-      <Route path="/meeting/:id" component={MeetingDetail} />
-      <Route path="/meeting/:id/email" component={EmailSender} />
+      <Route path="/meetings/:id" component={MeetingDetail} />
+      <Route path="/meetings/:id/email" component={EmailSender} />
       <Route path="/meetings" component={AllMeetings} />
       <Route path="/templates" component={TemplateManager} />
       {/* Fallback to 404 */}
