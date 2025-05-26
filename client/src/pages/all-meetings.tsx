@@ -9,13 +9,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatDuration } from "@/hooks/use-audio-recorder";
 import { MeetingDetailModal } from "@/components/MeetingDetailModal";
+import { useToast } from "@/hooks/use-toast";
 
 export default function AllMeetings() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTag, setSelectedTag] = useState("All Tags");
   const [selectedMeeting, setSelectedMeeting] = useState<Meeting | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const { meetings, isLoading } = useIndexedDBMeetings();
+  const { meetings, isLoading, deleteMeeting } = useIndexedDBMeetings();
+  const { toast } = useToast();
   
   const isError = false; // IndexedDB doesn't have loading errors in this context
   
@@ -43,6 +45,29 @@ export default function AllMeetings() {
     }
     return acc;
   }, []) || [];
+
+  // Delete meeting function
+  const handleDeleteMeeting = async (meeting: Meeting) => {
+    if (!window.confirm(`정말로 "${meeting.title}" 회의를 삭제하시겠습니까?`)) {
+      return;
+    }
+    
+    try {
+      await deleteMeeting(meeting.id);
+      toast({
+        title: "회의 삭제 완료",
+        description: `"${meeting.title}" 회의가 삭제되었습니다.`,
+      });
+      
+      // The meetings list will automatically update since IndexedDB hook is reactive
+    } catch (error: any) {
+      toast({
+        title: "삭제 오류",
+        description: error?.message || "회의 삭제 중 오류가 발생했습니다.",
+        variant: "destructive",
+      });
+    }
+  };
   
   return (
     <div className="px-4 py-6 md:px-8">
@@ -239,10 +264,7 @@ export default function AllMeetings() {
                     size="sm" 
                     variant="outline"
                     className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                    onClick={() => {
-                      // Delete functionality
-                      console.log('Delete meeting:', meeting.id);
-                    }}
+                    onClick={() => handleDeleteMeeting(meeting)}
                   >
                     <i className="ri-delete-bin-line"></i>
                   </Button>
@@ -260,6 +282,9 @@ export default function AllMeetings() {
         onClose={() => {
           setIsModalOpen(false);
           setSelectedMeeting(null);
+        }}
+        onDeleteSuccess={() => {
+          // The meetings list will automatically update since IndexedDB hook is reactive
         }}
       />
     </div>
