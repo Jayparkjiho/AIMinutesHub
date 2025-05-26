@@ -42,7 +42,7 @@ export default function GmailSender() {
   const { templates } = useIndexedDBTemplates();
   const { getPreference, savePreference } = useIndexedDBPreferences();
   
-  // URL에서 회의 데이터 추출
+  // URL에서 회의 데이터 추출 및 기본 이메일 내용 생성
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const meetingDataParam = urlParams.get('meetingData');
@@ -51,15 +51,72 @@ export default function GmailSender() {
       try {
         const decodedData = JSON.parse(decodeURIComponent(meetingDataParam));
         setMeetingData(decodedData);
+        
+        // 기본 이메일 제목 설정
         setEmailForm(prev => ({
           ...prev,
-          subject: `[회의록] ${decodedData.title}`
+          subject: `[회의록] ${decodedData.title}`,
+          text: generateDefaultEmailContent(decodedData)
         }));
       } catch (error) {
         console.error('회의 데이터 파싱 오류:', error);
       }
     }
   }, [location]);
+
+  // 기본 이메일 내용 생성
+  const generateDefaultEmailContent = (meeting: Meeting) => {
+    const date = new Date(meeting.date).toLocaleDateString('ko-KR');
+    const duration = Math.floor(meeting.duration / 60);
+    
+    let content = `안녕하세요,
+
+${meeting.title} 회의록을 공유드립니다.
+
+📅 회의 일시: ${date}
+⏰ 소요 시간: ${duration}분
+🏷️ 태그: ${meeting.tags?.join(', ') || '없음'}
+
+`;
+
+    // 참석자 정보
+    if (meeting.participants && meeting.participants.length > 0) {
+      content += `👥 참석자:
+${meeting.participants.map(p => `- ${p.name}${p.isHost ? ' (진행자)' : ''}`).join('\n')}
+
+`;
+    }
+
+    // 요약
+    if (meeting.summary) {
+      content += `📝 회의 요약:
+${meeting.summary}
+
+`;
+    }
+
+    // 액션 아이템
+    if (meeting.actionItems && meeting.actionItems.length > 0) {
+      content += `✅ 액션 아이템:
+${meeting.actionItems.map((item, index) => 
+        `${index + 1}. ${item.text}${item.assignee ? ` (담당: ${item.assignee})` : ''}${item.dueDate ? ` (마감: ${item.dueDate})` : ''}`
+      ).join('\n')}
+
+`;
+    }
+
+    // 노트
+    if (meeting.notes) {
+      content += `📋 추가 노트:
+${meeting.notes}
+
+`;
+    }
+
+    content += `감사합니다.`;
+    
+    return content;
+  };
   
   // 저장된 Gmail 설정 불러오기
   useEffect(() => {
@@ -287,6 +344,51 @@ export default function GmailSender() {
         </div>
       </div>
 
+      {/* 회의 데이터 표시 */}
+      {meetingData && (
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <i className="ri-file-text-line mr-2 text-blue-600"></i>
+              회의 정보
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <span className="text-sm font-medium text-neutral-700">제목</span>
+                <p className="text-neutral-900">{meetingData.title}</p>
+              </div>
+              <div>
+                <span className="text-sm font-medium text-neutral-700">일시</span>
+                <p className="text-neutral-900">
+                  {new Date(meetingData.date).toLocaleDateString('ko-KR')}
+                </p>
+              </div>
+              {meetingData.participants && meetingData.participants.length > 0 && (
+                <div>
+                  <span className="text-sm font-medium text-neutral-700">참석자</span>
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {meetingData.participants.map((participant, index) => (
+                      <Badge key={index} variant="outline" className="text-xs">
+                        {participant.name}
+                        {participant.isHost && ' (진행자)'}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {meetingData.actionItems && meetingData.actionItems.length > 0 && (
+                <div>
+                  <span className="text-sm font-medium text-neutral-700">액션 아이템</span>
+                  <p className="text-neutral-900">{meetingData.actionItems.length}개</p>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Gmail 설정 */}
         <div className="lg:col-span-1">
@@ -409,6 +511,46 @@ export default function GmailSender() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              {/* 템플릿 선택 */}
+              {templates && templates.length > 0 && meetingData && (
+                <div>
+                  <label className="block text-sm font-medium text-neutral-700 mb-2">
+                    이메일 템플릿 선택
+                  </label>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                    <Button
+                      variant={!selectedTemplate ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => {
+                        setSelectedTemplate(null);
+                        setEmailForm(prev => ({
+                          ...prev,
+                          subject: `[회의록] ${meetingData.title}`,
+                          text: generateDefaultEmailContent(meetingData)
+                        }));
+                      }}
+                    >
+                      기본 형식
+                    </Button>
+                    {templates.slice(0, 5).map((template) => (
+                      <Button
+                        key={template.id}
+                        variant={selectedTemplate?.id === template.id ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => applyTemplate(template)}
+                      >
+                        {template.name}
+                      </Button>
+                    ))}
+                  </div>
+                  {selectedTemplate && (
+                    <p className="text-xs text-blue-600 mt-1">
+                      ✓ {selectedTemplate.name} 템플릿이 적용됨
+                    </p>
+                  )}
+                </div>
+              )}
+
               {/* 받는 사람 */}
               <div>
                 <label className="block text-sm font-medium text-neutral-700 mb-2">
