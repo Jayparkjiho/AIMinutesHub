@@ -320,14 +320,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Generate meeting title from text directly
   app.post("/api/meetings/generate-title-text", async (req: Request, res: Response) => {
-    const { transcript } = req.body;
+    const { transcript, templateType, templateName } = req.body;
     
     if (!transcript) {
       return res.status(400).json({ error: "No transcript provided" });
     }
 
     try {
-      const generatedTitle = await generateMeetingTitle(transcript);
+      const generatedTitle = await generateMeetingTitle(transcript, templateType, templateName);
       res.json({ title: generatedTitle });
     } catch (error: any) {
       console.error("Error generating meeting title:", error);
@@ -359,14 +359,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Generate summary from text directly
   app.post("/api/meetings/generate-summary-text", async (req: Request, res: Response) => {
-    const { transcript } = req.body;
+    const { transcript, templateType, templateName, templateBody } = req.body;
     
     if (!transcript) {
       return res.status(400).json({ error: "No transcript provided" });
     }
 
     try {
-      const summary = await generateSummary(transcript);
+      const summary = await generateSummary(transcript, templateType, templateName, templateBody);
       res.json({ summary });
     } catch (error: any) {
       console.error("Error generating summary:", error);
@@ -376,14 +376,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Generate action items from text directly
   app.post("/api/meetings/generate-actions-text", async (req: Request, res: Response) => {
-    const { transcript } = req.body;
+    const { transcript, templateType, templateName, focusOnActions } = req.body;
     
     if (!transcript) {
       return res.status(400).json({ error: "No transcript provided" });
     }
 
     try {
-      const actionItems = await extractActionItems(transcript);
+      const actionItems = await extractActionItems(transcript, templateType, templateName, focusOnActions);
       
       // Convert to the format expected by our schema
       const formattedActionItems = actionItems.map(item => ({

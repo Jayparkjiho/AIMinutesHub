@@ -100,15 +100,28 @@ export async function transcribeAudio(audioBuffer: Buffer, originalName?: string
   }
 }
 
-// Generate summary from transcript
-export async function generateSummary(transcript: string): Promise<string> {
+// Generate summary from transcript with template context
+export async function generateSummary(transcript: string, templateType?: string, templateName?: string, templateBody?: string): Promise<string> {
   try {
+    let systemContent = "회의 내용을 요약해주세요. 주요 논의 사항, 결론, 중요한 포인트를 포함하여 간결하고 명확하게 요약하세요. 원문의 언어로 응답하세요 - 한국어면 한국어로, 영어면 영어로, 일본어면 일본어로 요약해주세요.";
+    
+    // Add template-specific instructions
+    if (templateType && templateName) {
+      if (templateType === 'summary') {
+        systemContent += ` 이 요약은 '${templateName}' 템플릿용으로 작성되므로 핵심 내용을 간결하게 정리해주세요.`;
+      } else if (templateType === 'action_items') {
+        systemContent += ` 이 요약은 '${templateName}' 템플릿용으로 작성되므로 실행 가능한 액션 아이템과 관련된 내용을 중심으로 요약해주세요.`;
+      } else if (templateType === 'full_report') {
+        systemContent += ` 이 요약은 '${templateName}' 템플릿용으로 작성되므로 상세하고 포괄적인 보고서 형태로 요약해주세요.`;
+      }
+    }
+
     const response = await openai.chat.completions.create({
       model: "gpt-4o",
       messages: [
         {
           role: "system",
-          content: "회의 내용을 요약해주세요. 주요 논의 사항, 결론, 중요한 포인트를 포함하여 간결하고 명확하게 요약하세요. 원문의 언어로 응답하세요 - 한국어면 한국어로, 영어면 영어로, 일본어면 일본어로 요약해주세요."
+          content: systemContent
         },
         {
           role: "user",

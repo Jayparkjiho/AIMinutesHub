@@ -727,11 +727,11 @@ export default function RecordMeeting() {
       <Dialog open={showTemplateModal} onOpenChange={setShowTemplateModal}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>이메일 템플릿 선택</DialogTitle>
+            <DialogTitle>AI 분석 템플릿 선택</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <p className="text-sm text-neutral-600">
-              회의 분석이 완료되었습니다! 이메일로 공유할 템플릿을 선택하세요.
+              AI가 어떤 방식으로 회의를 분석할지 템플릿을 선택해주세요. 선택한 템플릿에 맞춰 맞춤형 요약과 액션 아이템을 생성합니다.
             </p>
             
             <div className="grid gap-4">
@@ -761,10 +761,10 @@ export default function RecordMeeting() {
 
             <div className="flex justify-between pt-4 border-t">
               <Button variant="outline" onClick={handleTemplateModalClose}>
-                나중에 하기
+                취소
               </Button>
               <div className="text-sm text-neutral-500">
-                템플릿을 선택하면 이메일 작성 페이지로 이동합니다
+                템플릿을 선택하면 AI 분석을 시작합니다
               </div>
             </div>
           </div>
