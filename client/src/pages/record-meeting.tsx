@@ -42,8 +42,10 @@ export default function RecordMeeting() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingProgress, setProcessingProgress] = useState(0);
   const [showTemplateModal, setShowTemplateModal] = useState(false);
-  const [pendingMeetingId, setPendingMeetingId] = useState<number | null>(null);
+  const [pendingTranscript, setPendingTranscript] = useState<string>("");
+  const [pendingSource, setPendingSource] = useState<'record' | 'upload' | 'text' | null>(null);
   const [emailTemplates, setEmailTemplates] = useState<EmailTemplate[]>([]);
+  const [selectedTemplate, setSelectedTemplate] = useState<EmailTemplate | null>(null);
   
   const { toast } = useToast();
   const [, setLocation] = useLocation();
@@ -102,8 +104,8 @@ export default function RecordMeeting() {
     }
   };
 
-  // 통합된 AI 처리 함수 - Record, Upload, Text 모두 동일한 플로우
-  const processWithAI = async (transcript: string, source: 'record' | 'upload' | 'text') => {
+  // 템플릿 선택 후 AI 처리 시작
+  const startProcessingWithTemplate = (transcript: string, source: 'record' | 'upload' | 'text') => {
     if (!transcript.trim()) {
       toast({
         title: "내용이 없습니다",
@@ -113,6 +115,14 @@ export default function RecordMeeting() {
       return;
     }
 
+    // 템플릿 선택을 위해 팝업 표시
+    setPendingTranscript(transcript);
+    setPendingSource(source);
+    setShowTemplateModal(true);
+  };
+
+  // 통합된 AI 처리 함수 - 선택된 템플릿과 함께 처리
+  const processWithAI = async (transcript: string, source: 'record' | 'upload' | 'text', template: EmailTemplate) => {
     try {
       setIsProcessing(true);
       setProcessingProgress(10);
@@ -134,11 +144,15 @@ export default function RecordMeeting() {
 
       setProcessingProgress(30);
 
-      // 2. OpenAI로 제목 생성
+      // 2. OpenAI로 제목 생성 (템플릿 정보 포함)
       const titleResponse = await fetch('/api/meetings/generate-title-text', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ transcript })
+        body: JSON.stringify({ 
+          transcript,
+          templateType: template.type,
+          templateName: template.name
+        })
       });
       
       let generatedTitle = title || "Untitled Meeting";
@@ -149,11 +163,16 @@ export default function RecordMeeting() {
 
       setProcessingProgress(50);
 
-      // 3. OpenAI로 요약 생성
+      // 3. OpenAI로 요약 생성 (템플릿 맞춤형)
       const summaryResponse = await fetch('/api/meetings/generate-summary-text', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ transcript })
+        body: JSON.stringify({ 
+          transcript,
+          templateType: template.type,
+          templateName: template.name,
+          templateBody: template.body
+        })
       });
       
       let summary = "";
@@ -164,11 +183,16 @@ export default function RecordMeeting() {
 
       setProcessingProgress(70);
 
-      // 4. OpenAI로 액션 아이템 생성
+      // 4. OpenAI로 액션 아이템 생성 (템플릿 맞춤형)
       const actionsResponse = await fetch('/api/meetings/generate-actions-text', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ transcript })
+        body: JSON.stringify({ 
+          transcript,
+          templateType: template.type,
+          templateName: template.name,
+          focusOnActions: template.type === 'action_items'
+        })
       });
       
       let actionItems: any[] = [];
@@ -217,12 +241,30 @@ export default function RecordMeeting() {
 
       toast({
         title: "회의 분석 완료!",
-        description: `AI가 회의를 분석하여 요약과 ${finalActionItems.length}개의 액션 아이템을 생성했습니다.`
+        description: `AI가 선택한 템플릿에 맞춰 회의를 분석하여 요약과 ${finalActionItems.length}개의 액션 아이템을 생성했습니다.`
       });
 
-      // 이메일 템플릿 선택 팝업 표시
-      setPendingMeetingId(savedMeeting.id);
-      setShowTemplateModal(true);
+      // 선택된 템플릿과 회의 데이터로 이메일 작성 페이지로 이동
+      const templateWithData = {
+        ...template,
+        subject: EmailService.replaceTemplateVariables(template.subject, {
+          ...savedMeeting,
+          title: generatedTitle,
+          summary: summary,
+          actionItems: finalActionItems,
+          transcript: separatedTranscript
+        }),
+        body: EmailService.replaceTemplateVariables(template.body, {
+          ...savedMeeting,
+          title: generatedTitle,
+          summary: summary,
+          actionItems: finalActionItems,
+          transcript: separatedTranscript
+        })
+      };
+
+      // 이메일 작성 페이지로 이동
+      setLocation(`/email-compose?meetingId=${savedMeeting.id}&templateId=${template.id}`);
 
       // 폼 초기화
       if (source === 'record') {
@@ -285,8 +327,8 @@ export default function RecordMeeting() {
 
       setProcessingProgress(40);
 
-      // 공통 AI 처리 함수 호출
-      await processWithAI(transcribeResult.text, 'record');
+      // 템플릿 선택 후 AI 처리 시작
+      startProcessingWithTemplate(transcribeResult.text, 'record');
 
     } catch (error: any) {
       console.error("녹음 처리 오류:", error);
@@ -332,8 +374,8 @@ export default function RecordMeeting() {
 
       setProcessingProgress(40);
 
-      // 공통 AI 처리 함수 호출
-      await processWithAI(transcribeResult.text, 'upload');
+      // 템플릿 선택 후 AI 처리 시작
+      startProcessingWithTemplate(transcribeResult.text, 'upload');
 
     } catch (error: any) {
       console.error("파일 처리 오류:", error);
@@ -349,8 +391,8 @@ export default function RecordMeeting() {
 
   // 텍스트 입력 처리
   const handleTextProcess = async () => {
-    // 공통 AI 처리 함수 호출
-    await processWithAI(manualText, 'text');
+    // 템플릿 선택 후 AI 처리 시작
+    startProcessingWithTemplate(manualText, 'text');
   };
 
   const handleToggleRecording = () => {
@@ -382,37 +424,17 @@ export default function RecordMeeting() {
 
   // 이메일 템플릿 선택 처리
   const handleTemplateSelect = async (template: EmailTemplate) => {
-    if (!pendingMeetingId) return;
+    if (!pendingTranscript || !pendingSource) return;
 
     try {
-      // 회의 데이터 가져오기
-      const meeting = await indexedDBStorage.getMeeting(pendingMeetingId);
-      if (!meeting) {
-        toast({
-          title: "오류",
-          description: "회의 데이터를 찾을 수 없습니다.",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      // 선택된 템플릿과 회의 데이터로 이메일 작성 페이지로 이동
-      const templateWithData = {
-        ...template,
-        subject: EmailService.replaceTemplateVariables(template.subject, meeting),
-        body: EmailService.replaceTemplateVariables(template.body, meeting)
-      };
-
-      // 이메일 작성 페이지로 데이터 전달하여 이동
-      setLocation(`/email-compose?meetingId=${pendingMeetingId}&templateId=${template.id}`);
-      
       setShowTemplateModal(false);
-      setPendingMeetingId(null);
-
-      toast({
-        title: "템플릿 적용 완료",
-        description: "선택한 템플릿으로 이메일 작성 페이지로 이동합니다."
-      });
+      
+      // 선택된 템플릿으로 AI 처리 시작
+      await processWithAI(pendingTranscript, pendingSource, template);
+      
+      // 상태 초기화
+      setPendingTranscript("");
+      setPendingSource(null);
 
     } catch (error: any) {
       console.error("템플릿 처리 오류:", error);
@@ -421,13 +443,18 @@ export default function RecordMeeting() {
         description: error.message || "템플릿 처리 중 오류가 발생했습니다.",
         variant: "destructive"
       });
+      setIsProcessing(false);
+      setProcessingProgress(0);
     }
   };
 
   // 템플릿 선택 없이 닫기
   const handleTemplateModalClose = () => {
     setShowTemplateModal(false);
-    setPendingMeetingId(null);
+    setPendingTranscript("");
+    setPendingSource(null);
+    setIsProcessing(false);
+    setProcessingProgress(0);
   };
 
   return (
