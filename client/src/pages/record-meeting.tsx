@@ -293,7 +293,7 @@ export default function RecordMeeting() {
     }
   };
 
-  // Generate AI analysis (summary and action items)
+  // Generate AI analysis (summary, action items, and title)
   const generateAIAnalysis = async (transcript: string) => {
     if (!transcript.trim()) return;
     
@@ -301,6 +301,20 @@ export default function RecordMeeting() {
     try {
       let summary = "";
       let actionItems: any[] = [];
+      let generatedTitle = "";
+
+      // Generate AI title
+      const titleResponse = await fetch('/api/meetings/generate-title-text', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ transcript })
+      });
+      
+      if (titleResponse.ok) {
+        const titleData = await titleResponse.json();
+        generatedTitle = titleData.title;
+        setTitle(generatedTitle); // Update the title state
+      }
 
       // Generate summary
       const summaryResponse = await fetch('/api/meetings/generate-summary-text', {
@@ -348,6 +362,7 @@ export default function RecordMeeting() {
             
             const updatedMeeting = {
               ...existingMeeting,
+              title: generatedTitle || existingMeeting.title,
               summary: summary || existingMeeting.summary,
               actionItems: [...existingActionItems, ...newActionItems]
             };
@@ -1013,7 +1028,7 @@ export default function RecordMeeting() {
                       if (meetingData) {
                         const encodedData = encodeURIComponent(JSON.stringify(meetingData));
                         // wouter navigate 사용으로 변경
-                        navigate(`/email-sender?meetingData=${encodedData}`);
+                        navigate(`/gmail-sender?meetingData=${encodedData}`);
                       } else {
                         toast({
                           title: "오류",
@@ -1034,7 +1049,7 @@ export default function RecordMeeting() {
                   className="bg-blue-50 border-blue-200 hover:bg-blue-100"
                 >
                   <i className="ri-mail-send-line mr-2"></i>
-                  이메일 발송
+                  Gmail 발송
                 </Button>
               )}
             </div>
