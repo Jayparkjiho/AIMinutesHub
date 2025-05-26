@@ -12,6 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { indexedDBStorage } from "@/lib/indexeddb";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 
 export default function RecordMeeting() {
   const [location, navigate] = useLocation();
