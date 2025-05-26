@@ -104,20 +104,10 @@ export default function RecordMeeting() {
     }
   };
 
-  // 템플릿 선택 후 AI 처리 시작
-  const startProcessingWithTemplate = (transcript: string, source: 'record' | 'upload' | 'text') => {
-    if (!transcript.trim()) {
-      toast({
-        title: "내용이 없습니다",
-        description: "처리할 회의 내용을 제공해주세요.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    // 템플릿 선택을 위해 팝업 표시
-    setPendingTranscript(transcript);
-    setPendingSource(source);
+  // 템플릿 선택 팝업 표시
+  const showTemplateSelection = () => {
+    console.log('Showing template selection...');
+    console.log('Available templates:', emailTemplates.length);
     setShowTemplateModal(true);
   };
 
@@ -168,10 +158,7 @@ export default function RecordMeeting() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          transcript,
-          templateType: template.type,
-          templateName: template.name,
-          templateBody: template.body
+          transcript
         })
       });
       
@@ -189,8 +176,6 @@ export default function RecordMeeting() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           transcript,
-          templateType: template.type,
-          templateName: template.name,
           focusOnActions: template.type === 'action_items'
         })
       });
@@ -324,11 +309,19 @@ export default function RecordMeeting() {
       }
 
       const transcribeResult = await transcribeResponse.json();
-
       setProcessingProgress(40);
 
-      // 템플릿 선택 후 AI 처리 시작
-      startProcessingWithTemplate(transcribeResult.text, 'record');
+      // 변환된 텍스트를 상태에 저장하고 수동 입력 탭으로 전환
+      setManualText(transcribeResult.text);
+      setActiveTab("text");
+      
+      toast({
+        title: "음성 변환 완료",
+        description: "텍스트로 변환이 완료되었습니다. 내용을 확인하고 분석을 진행해주세요.",
+      });
+
+      setIsProcessing(false);
+      setProcessingProgress(0);
 
     } catch (error: any) {
       console.error("녹음 처리 오류:", error);
@@ -357,7 +350,7 @@ export default function RecordMeeting() {
       setIsProcessing(true);
       setProcessingProgress(20);
 
-      // Whisper API로 음성을 텍스트로 변환
+      // 오디오 파일을 텍스트로 변환
       const formData = new FormData();
       formData.append("audio", uploadedFile);
 
@@ -367,15 +360,23 @@ export default function RecordMeeting() {
       });
 
       if (!transcribeResponse.ok) {
-        throw new Error('오디오 파일 인식에 실패했습니다');
+        throw new Error('음성 인식에 실패했습니다');
       }
 
       const transcribeResult = await transcribeResponse.json();
-
       setProcessingProgress(40);
 
-      // 템플릿 선택 후 AI 처리 시작
-      startProcessingWithTemplate(transcribeResult.text, 'upload');
+      // 변환된 텍스트를 상태에 저장하고 수동 입력 탭으로 전환
+      setManualText(transcribeResult.text);
+      setActiveTab("text");
+      
+      toast({
+        title: "음성 변환 완료",
+        description: "텍스트로 변환이 완료되었습니다. 내용을 확인하고 분석을 진행해주세요.",
+      });
+
+      setIsProcessing(false);
+      setProcessingProgress(0);
 
     } catch (error: any) {
       console.error("파일 처리 오류:", error);
@@ -389,10 +390,82 @@ export default function RecordMeeting() {
     }
   };
 
-  // 텍스트 입력 처리
-  const handleTextProcess = async () => {
-    // 템플릿 선택 후 AI 처리 시작
-    startProcessingWithTemplate(manualText, 'text');
+  // 텍스트 분석 처리
+  const handleTextAnalysis = async (template: EmailTemplate) => {
+    if (!manualText.trim()) {
+      toast({
+        title: "텍스트가 입력되지 않았습니다",
+        description: "회의 내용을 입력해주세요.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      setIsProcessing(true);
+      setProcessingProgress(20);
+
+      // 텍스트와 템플릿 정보를 API로 전송
+      const response = await fetch('/api/analyze-text-with-template', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          transcript: manualText,
+          templateType: template.type,
+          templateName: template.name,
+          templateBody: template.body
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || '텍스트 분석에 실패했습니다');
+      }
+
+      const analysisResult = await response.json();
+      setProcessingProgress(80);
+
+      // IndexedDB에 완성된 분석 결과 저장
+      await indexedDBStorage.init();
+      const meetingData = {
+        title: analysisResult.title || "Untitled Meeting",
+        date: new Date().toISOString(),
+        duration: 0,
+        tags: tags,
+        userId: 1,
+        notes: notes || "",
+        transcript: analysisResult.separatedTranscript || analysisResult.transcript,
+        summary: analysisResult.summary,
+        emailTemplate: analysisResult.emailTemplate,
+        actionItems: analysisResult.actionItems || []
+      };
+
+      const savedMeeting = await indexedDBStorage.saveMeeting(meetingData);
+      console.log('AI 분석 결과를 IndexedDB에 저장:', savedMeeting);
+
+      setProcessingProgress(100);
+      
+      toast({
+        title: "회의 분석 완료!",
+        description: `템플릿 "${template.name}"에 맞춰 회의가 성공적으로 분석되었습니다.`,
+      });
+
+      // 대시보드로 이동
+      setTimeout(() => {
+        setLocation('/');
+      }, 1000);
+
+    } catch (error: any) {
+      console.error("텍스트 분석 오류:", error);
+      toast({
+        title: "텍스트 분석 오류",
+        description: error.message || "텍스트 분석 중 오류가 발생했습니다.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsProcessing(false);
+      setProcessingProgress(0);
+    }
   };
 
   const handleToggleRecording = () => {
@@ -424,28 +497,32 @@ export default function RecordMeeting() {
 
   // 이메일 템플릿 선택 처리
   const handleTemplateSelect = async (template: EmailTemplate) => {
-    if (!pendingTranscript || !pendingSource) return;
-
-    try {
-      setShowTemplateModal(false);
-      
-      // 선택된 템플릿으로 AI 처리 시작
+    console.log('Template selected:', template.name);
+    setShowTemplateModal(false);
+    
+    // 업로드된 파일이 있다면 처리
+    if (uploadedFile && activeTab === "upload") {
+      await handleUploadProcess();
+    }
+    // 텍스트 입력이 있다면 처리
+    else if (manualText.trim() && activeTab === "text") {
+      await handleTextAnalysis(template);
+    }
+    // 녹음 데이터가 있다면 처리 (기존 방식 유지)
+    else if (pendingTranscript && pendingSource) {
       await processWithAI(pendingTranscript, pendingSource, template);
-      
-      // 상태 초기화
-      setPendingTranscript("");
-      setPendingSource(null);
-
-    } catch (error: any) {
-      console.error("템플릿 처리 오류:", error);
+    }
+    else {
       toast({
-        title: "템플릿 처리 오류",
-        description: error.message || "템플릿 처리 중 오류가 발생했습니다.",
+        title: "처리할 데이터가 없습니다",
+        description: "녹음, 파일 업로드, 또는 텍스트 입력을 먼저 해주세요.",
         variant: "destructive"
       });
-      setIsProcessing(false);
-      setProcessingProgress(0);
     }
+    
+    // 상태 초기화
+    setPendingTranscript("");
+    setPendingSource(null);
   };
 
   // 템플릿 선택 없이 닫기
@@ -683,7 +760,7 @@ export default function RecordMeeting() {
                 {manualText && (
                   <div className="flex space-x-2">
                     <Button 
-                      onClick={handleTextProcess} 
+                      onClick={showTemplateSelection} 
                       disabled={isProcessing || !manualText.trim()}
                       className="flex-1"
                     >
@@ -725,7 +802,7 @@ export default function RecordMeeting() {
 
       {/* 이메일 템플릿 선택 팝업 */}
       <Dialog open={showTemplateModal} onOpenChange={setShowTemplateModal}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>AI 분석 템플릿 선택</DialogTitle>
           </DialogHeader>

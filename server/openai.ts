@@ -101,20 +101,22 @@ export async function transcribeAudio(audioBuffer: Buffer, originalName?: string
 }
 
 // Generate summary from transcript with template context
-export async function generateSummary(transcript: string, templateType?: string, templateName?: string, templateBody?: string): Promise<string> {
+export async function generateSummary(transcript: string): Promise<string> {
   try {
     let systemContent = "회의 내용을 요약해주세요. 주요 논의 사항, 결론, 중요한 포인트를 포함하여 간결하고 명확하게 요약하세요. 원문의 언어로 응답하세요 - 한국어면 한국어로, 영어면 영어로, 일본어면 일본어로 요약해주세요.";
     
-    // Add template-specific instructions
-    if (templateType && templateName) {
-      if (templateType === 'summary') {
-        systemContent += ` 이 요약은 '${templateName}' 템플릿용으로 작성되므로 핵심 내용을 간결하게 정리해주세요.`;
-      } else if (templateType === 'action_items') {
-        systemContent += ` 이 요약은 '${templateName}' 템플릿용으로 작성되므로 실행 가능한 액션 아이템과 관련된 내용을 중심으로 요약해주세요.`;
-      } else if (templateType === 'full_report') {
-        systemContent += ` 이 요약은 '${templateName}' 템플릿용으로 작성되므로 상세하고 포괄적인 보고서 형태로 요약해주세요.`;
-      }
-    }
+    // // Add template-specific instructions
+    // if (templateType && templateName) {
+    //   if (templateType === 'summary') {
+    //     systemContent += ` 이 요약은 '${templateName}' 템플릿용으로 작성되므로 핵심 내용을 간결하게 정리해주세요.`;
+    //   } else if (templateType === 'action_items') {
+    //     systemContent += ` 이 요약은 '${templateName}' 템플릿용으로 작성되므로 실행 가능한 액션 아이템과 관련된 내용을 중심으로 요약해주세요.`;
+    //   } else if (templateType === 'full_report') {
+    //     systemContent += ` 이 요약은 '${templateName}' 템플릿용으로 작성되므로 상세하고 포괄적인 보고서 형태로 요약해주세요.`;
+    //   } else if(templateType === 'email') {
+
+    //   }
+    // }
 
     const response = await openai.chat.completions.create({
       model: "gpt-4o",
@@ -137,19 +139,75 @@ export async function generateSummary(transcript: string, templateType?: string,
   }
 }
 
-// Extract action items from transcript
-export async function extractActionItems(transcript: string): Promise<{
-  text: string,
-  assignee?: string,
-  dueDate?: string,
-}[]> {
+// Generate summary from transcript with template context
+export async function generateEmail(transcript: string, templateType: string, templateName: string, templateBody: string): Promise<string> {
   try {
+    let systemContent = "회의 내용을 요약해주세요. 주요 논의 사항, 결론, 중요한 포인트를 포함하여 간결하고 명확하게 요약하세요. 원문의 언어로 응답하세요 - 한국어면 한국어로, 영어면 영어로, 일본어면 일본어로 요약해주세요.";
+    systemContent += ` 이 요약은 템플릿용으로 작성되므로  '${templateName}' 템플릿에 맞게 작성해주세요. 회의 날짜가 없을시 오늘 날짜로 넣어주세요. \n 템플릿 내용: ${templateBody}`;
+
+    // // Add template-specific instructions
+    // if (templateType && templateName) {
+    //   if (templateType === 'summary') {
+    //     systemContent += ` 이 요약은 '${templateName}' 템플릿용으로 작성되므로 핵심 내용을 간결하게 정리해주세요.`;
+    //   } else if (templateType === 'action_items') {
+    //     systemContent += ` 이 요약은 '${templateName}' 템플릿용으로 작성되므로 실행 가능한 액션 아이템과 관련된 내용을 중심으로 요약해주세요.`;
+    //   } else if (templateType === 'full_report') {
+    //     systemContent += ` 이 요약은 '${templateName}' 템플릿용으로 작성되므로 상세하고 포괄적인 보고서 형태로 요약해주세요.`;
+    //   } else if(templateType === 'email') {
+
+    //   }
+    // }
+
     const response = await openai.chat.completions.create({
       model: "gpt-4o",
       messages: [
         {
           role: "system",
-          content: "You are a meeting assistant that extracts action items from meeting transcripts. For each action item, identify the task, assignee, and due date if mentioned."
+          content: systemContent
+        },
+        {
+          role: "user",
+          content: `${transcript}`
+        }
+      ],
+    });
+
+    return response.choices[0].message.content || "Unable to generate email summary";
+  } catch (error: any) {
+    console.error("Error generating email summary:", error);
+    throw new Error(`Failed to generate  email summary: ${error.message}`);
+  }
+}
+
+// Extract action items from transcript with template context
+export async function extractActionItems(transcript: string, focusOnActions?: boolean): Promise<{
+  text: string,
+  assignee?: string,
+  dueDate?: string,
+}[]> {
+  try {
+    let systemContent = "You are a meeting assistant that extracts action items from meeting transcripts. For each action item, identify the task, assignee, and due date if mentioned.";
+    
+    systemContent += ` so focus heavily on identifying actionable tasks, commitments, and follow-up items. Be comprehensive in extracting even implicit action items.`;
+    /*
+    // Add template-specific instructions
+    if (templateType && templateName) {
+      if (templateType === 'action_items' || focusOnActions) {
+        systemContent += ` This analysis is for the '${templateName}' template, so focus heavily on identifying actionable tasks, commitments, and follow-up items. Be comprehensive in extracting even implicit action items.`;
+      } else if (templateType === 'summary') {
+        systemContent += ` This analysis is for the '${templateName}' template, so extract only the most critical and explicit action items.`;
+      } else if (templateType === 'full_report') {
+        systemContent += ` This analysis is for the '${templateName}' template, so provide detailed action items with clear context and priority levels.`;
+      }
+    }
+      */
+
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "system",
+          content: systemContent
         },
         {
           role: "user",
@@ -193,14 +251,27 @@ export async function identifyParticipants(transcript: string): Promise<{ name: 
   }
 }
 
-export async function generateMeetingTitle(transcript: string): Promise<string> {
+export async function generateMeetingTitle(transcript: string, templateType?: string, templateName?: string): Promise<string> {
   try {
+    let systemContent = "회의 내용을 분석해서 적절한 회의 제목을 생성하세요. 제목은 간결하고 회의의 핵심 주제를 잘 나타내야 합니다. 한국어로 응답하세요. JSON 형식으로 응답: {\"title\": \"생성된 제목\"}";
+    
+    // Add template-specific instructions for title generation
+    if (templateType && templateName) {
+      if (templateType === 'action_items') {
+        systemContent += ` 이 제목은 '${templateName}' 액션 아이템 템플릿용이므로 실행과 과업에 초점을 맞춘 제목을 생성하세요.`;
+      } else if (templateType === 'summary') {
+        systemContent += ` 이 제목은 '${templateName}' 요약 템플릿용이므로 핵심 내용을 간결하게 표현하는 제목을 생성하세요.`;
+      } else if (templateType === 'full_report') {
+        systemContent += ` 이 제목은 '${templateName}' 상세 보고서 템플릿용이므로 포괄적이고 구체적인 제목을 생성하세요.`;
+      }
+    }
+
     const response = await openai.chat.completions.create({
       model: "gpt-4o", // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
       messages: [
         {
           role: "system",
-          content: "회의 내용을 분석해서 적절한 회의 제목을 생성하세요. 제목은 간결하고 회의의 핵심 주제를 잘 나타내야 합니다. 한국어로 응답하세요. JSON 형식으로 응답: {\"title\": \"생성된 제목\"}"
+          content: systemContent
         },
         {
           role: "user",

@@ -10,7 +10,7 @@ import {
   type InsertMeeting
 } from "@shared/schema";
 import multer from "multer";
-import { transcribeAudio, generateSummary, extractActionItems, identifyParticipants, generateMeetingTitle } from "./openai";
+import { transcribeAudio, generateSummary, extractActionItems, identifyParticipants, generateMeetingTitle, separateSpeakers, generateEmail } from "./openai";
 import { v4 as uuidv4 } from "uuid";
 
 // Setup multer for memory storage
@@ -224,6 +224,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+
+  // Generate or regenerate summary
+  app.post("/api/meetings/:id/email", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid meeting ID" });
+      }
+
+      const meeting = await storage.getMeeting(id);
+      if (!meeting || !meeting.transcript) {
+        return res.status(404).json({ message: "Meeting or transcript not found" });
+      }
+
+      const summary = await generateSummary(meeting.transcript);
+      const updatedMeeting = await storage.updateMeeting(id, { summary });
+      
+      res.json({ summary });
+    } catch (error: any) {
+      res.status(500).json({ message: `Error generating summary: ${error.message}` });
+    }
+  });
+
+
   // Generate or regenerate action items
   app.post("/api/meetings/:id/action-items", async (req: Request, res: Response) => {
     try {
@@ -335,7 +359,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Transcribe audio file directly
+  // 오디오 파일을 텍스트로 변환하는 엔드포인트
   app.post("/api/transcribe-audio", upload.single("audio"), async (req: Request, res: Response) => {
     if (!req.file) {
       return res.status(400).json({ error: "No audio file provided" });
@@ -357,6 +381,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // 텍스트를 템플릿 형식으로 분석하는 엔드포인트
+  app.post("/api/analyze-text-with-template", async (req: Request, res: Response) => {
+    const { transcript, templateType, templateName, templateBody } = req.body;
+    
+    if (!transcript) {
+      return res.status(400).json({ error: "텍스트가 없습니다" });
+    }
+
+    console.log("=== TEMPLATE-BASED TEXT ANALYSIS ===");
+    console.log("Text length:", transcript.length);
+    console.log("Template info:", { templateType, templateName });
+
+    try {
+      // 선택된 템플릿에 맞춰 병렬로 분석 수행
+      const [titleResult, summaryResult, actionItemsResult, speakerSeparationResult, emailTemplateResult] = await Promise.all([
+        generateMeetingTitle(transcript),
+        generateSummary(transcript),
+        extractActionItems(transcript, true),
+        separateSpeakers(transcript),
+        generateEmail(transcript, templateType, templateName, templateBody),
+
+      ]);
+
+      console.log("All AI analysis completed");
+
+      res.json({
+        transcript: transcript,
+        title: titleResult,
+        summary: summaryResult,
+        actionItems: actionItemsResult.actionItems || actionItemsResult,
+        separatedTranscript: speakerSeparationResult,
+        emailTemplate: emailTemplateResult,
+        duration: 0
+      });
+
+    } catch (error: any) {
+      console.error("Template-based text analysis error:", error);
+      res.status(500).json({ error: error.message || "분석 중 오류가 발생했습니다" });
+    }
+  });
+
   // Generate summary from text directly
   app.post("/api/meetings/generate-summary-text", async (req: Request, res: Response) => {
     const { transcript, templateType, templateName, templateBody } = req.body;
@@ -366,7 +431,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
 
     try {
-      const summary = await generateSummary(transcript, templateType, templateName, templateBody);
+      const summary = await generateSummary(transcript);
       res.json({ summary });
     } catch (error: any) {
       console.error("Error generating summary:", error);
@@ -383,7 +448,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
 
     try {
-      const actionItems = await extractActionItems(transcript, templateType, templateName, focusOnActions);
+      const actionItems = await extractActionItems(transcript, focusOnActions);
       
       // Convert to the format expected by our schema
       const formattedActionItems = actionItems.map(item => ({
