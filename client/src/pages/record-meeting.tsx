@@ -336,10 +336,20 @@ export default function RecordMeeting() {
           const existingMeeting = await indexedDBStorage.getMeeting(meetingId);
           
           if (existingMeeting) {
+            // Merge new action items with existing ones
+            const existingActionItems = existingMeeting.actionItems || [];
+            const newActionItems = actionItems.map((aiItem: any) => ({
+              id: `action_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+              text: aiItem.text,
+              completed: false,
+              assignee: aiItem.assignee || undefined,
+              dueDate: aiItem.dueDate || undefined,
+            }));
+            
             const updatedMeeting = {
               ...existingMeeting,
               summary: summary || existingMeeting.summary,
-              actionItems: actionItems.length > 0 ? actionItems : existingMeeting.actionItems
+              actionItems: [...existingActionItems, ...newActionItems]
             };
             
             console.log('Updated meeting data:', updatedMeeting);
@@ -994,9 +1004,10 @@ export default function RecordMeeting() {
               </div>
             )}
 
-            {/* Generate Analysis Button */}
-            {transcriptText && !generatedSummary && !isGeneratingAnalysis && (
-              <div className="text-center">
+            {/* Action Buttons */}
+            <div className="flex justify-center space-x-4">
+              {/* Generate Analysis Button */}
+              {transcriptText && !generatedSummary && !isGeneratingAnalysis && (
                 <Button 
                   onClick={() => generateAIAnalysis(transcriptText)}
                   className="bg-primary hover:bg-primary/90"
@@ -1004,8 +1015,33 @@ export default function RecordMeeting() {
                   <i className="ri-brain-line mr-2"></i>
                   AI 분석 시작하기
                 </Button>
-              </div>
-            )}
+              )}
+
+              {/* Email Send Button - Show when analysis is complete and meeting is saved */}
+              {meetingId && (generatedSummary || generatedActionItems.length > 0) && (
+                <Button 
+                  onClick={() => {
+                    // 회의 데이터를 이메일 페이지로 전달
+                    const meetingData = encodeURIComponent(JSON.stringify({
+                      id: meetingId,
+                      title: title || "Untitled Meeting",
+                      summary: generatedSummary,
+                      actionItems: generatedActionItems,
+                      transcript: transcriptText,
+                      tags: tags,
+                      date: new Date().toISOString(),
+                      duration: 0
+                    }));
+                    window.open(`/email-sender?meetingData=${meetingData}`, '_blank');
+                  }}
+                  variant="outline"
+                  className="bg-blue-50 border-blue-200 hover:bg-blue-100"
+                >
+                  <i className="ri-mail-send-line mr-2"></i>
+                  이메일 발송
+                </Button>
+              )}
+            </div>
           </CardContent>
         </Card>
       )}
