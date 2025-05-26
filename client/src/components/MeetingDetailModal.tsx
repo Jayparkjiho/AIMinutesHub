@@ -23,9 +23,9 @@ export function MeetingDetailModal({ meeting, isOpen, onClose, onDeleteSuccess }
   if (!meeting) return null;
 
   const handleEmailSend = () => {
-    // 회의 데이터를 Gmail SMTP 페이지로 전달
+    // 회의 데이터를 새로운 이메일 작성 페이지로 전달
     const meetingData = encodeURIComponent(JSON.stringify(meeting));
-    navigate(`/gmail-sender?meetingData=${meetingData}`);
+    navigate(`/email-compose?meetingData=${meetingData}`);
     onClose();
   };
 

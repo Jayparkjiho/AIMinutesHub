@@ -10,6 +10,7 @@ import MeetingDetail from "@/pages/meeting-detail";
 import AllMeetings from "@/pages/all-meetings";
 import EmailSender from "@/pages/email-sender";
 import GmailSender from "@/pages/gmail-sender";
+import EmailCompose from "@/pages/email-compose";
 import TemplateManager from "@/pages/template-manager";
 import { Sidebar } from "@/components/ui/sidebar";
 import { MobileHeader } from "@/components/MobileHeader";
@@ -25,6 +26,7 @@ function Router() {
       <Route path="/meetings" component={AllMeetings} />
       <Route path="/email-sender" component={EmailSender} />
       <Route path="/gmail-sender" component={GmailSender} />
+      <Route path="/email-compose" component={EmailCompose} />
       <Route path="/templates" component={TemplateManager} />
       {/* Fallback to 404 */}
       <Route component={NotFound} />
