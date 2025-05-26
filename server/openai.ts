@@ -70,9 +70,9 @@ export async function extractActionItems(transcript: string): Promise<{
       response_format: { type: "json_object" },
     });
 
-    const result = JSON.parse(response.choices[0].message.content);
+    const result = JSON.parse(response.choices[0].message.content || "{}");
     return result.actionItems || [];
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error extracting action items:", error);
     return [];
   }
@@ -96,9 +96,9 @@ export async function identifyParticipants(transcript: string): Promise<{ name: 
       response_format: { type: "json_object" },
     });
 
-    const result = JSON.parse(response.choices[0].message.content);
+    const result = JSON.parse(response.choices[0].message.content || "{}");
     return result.participants || [];
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error identifying participants:", error);
     return [];
   }
