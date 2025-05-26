@@ -592,9 +592,14 @@ export default function RecordMeeting() {
   
   // Handle save recording
   const handleSaveRecording = async () => {
-    console.log("Process Recording clicked! audioBlob:", audioBlob, "meetingId:", meetingId);
-    if (!audioBlob || !meetingId) {
-      console.log("Missing audioBlob or meetingId");
+    console.log("Process Recording clicked! audioBlob:", audioBlob);
+    if (!audioBlob) {
+      console.log("Missing audioBlob");
+      toast({
+        title: "No recording found",
+        description: "Please record audio first",
+        variant: "destructive"
+      });
       return;
     }
     
@@ -602,43 +607,103 @@ export default function RecordMeeting() {
       setIsProcessing(true);
       setProcessingProgress(0);
       
-      // Upload audio file
+      // Create meeting first if it doesn't exist
+      let currentMeetingId = meetingId;
+      if (!currentMeetingId) {
+        const response = await apiRequest("POST", "/api/meetings", {
+          title: title || "Untitled Meeting",
+          tags: tags,
+          notes: notes || ""
+        });
+        currentMeetingId = response.id;
+        setMeetingId(currentMeetingId);
+      }
+      
+      setProcessingProgress(20);
+      
+      // Transcribe audio using OpenAI
       const formData = new FormData();
       formData.append("audio", audioBlob, "recording.wav");
       
-      setProcessingProgress(30);
-      const uploadResponse = await fetch(`/api/meetings/${meetingId}/record`, {
+      setProcessingProgress(40);
+      const transcribeResponse = await fetch('/api/transcribe-audio', {
         method: 'POST',
         body: formData
       });
-      const uploadResult = await uploadResponse.json();
+      const transcribeResult = await transcribeResponse.json();
+      
+      if (!transcribeResponse.ok) {
+        throw new Error(transcribeResult.message || 'Failed to transcribe audio');
+      }
       
       setProcessingProgress(60);
       
-      // Generate summary
-      await apiRequest("POST", `/api/meetings/${meetingId}/summary`);
+      // Generate title from transcript
+      const titleResponse = await apiRequest("POST", "/api/meetings/generate-title-text", {
+        transcript: transcribeResult.text
+      });
+      
+      setProcessingProgress(70);
+      
+      // Generate summary from transcript
+      const summaryResponse = await apiRequest("POST", "/api/meetings/generate-summary-text", {
+        transcript: transcribeResult.text
+      });
       
       setProcessingProgress(80);
       
-      // Generate action items  
-      await apiRequest("POST", `/api/meetings/${meetingId}/action-items`);
+      // Generate action items from transcript
+      const actionsResponse = await apiRequest("POST", "/api/meetings/generate-actions-text", {
+        transcript: transcribeResult.text
+      });
+      
+      setProcessingProgress(90);
+      
+      // Separate speakers
+      const separateResponse = await apiRequest("POST", "/api/meetings/separate-speakers", {
+        transcript: transcribeResult.text
+      });
+      
+      // Save meeting data to IndexedDB
+      const meetingData = {
+        id: currentMeetingId,
+        title: titleResponse.title || title || "Untitled Meeting", 
+        date: new Date().toISOString(),
+        duration: Math.round(transcribeResult.duration || recordingTime),
+        tags: tags,
+        userId: 1,
+        transcript: separateResponse.separatedTranscript || transcribeResult.text,
+        summary: summaryResponse.summary,
+        actionItems: actionsResponse.actionItems || [],
+        participants: [],
+        notes: notes || ""
+      };
+      
+      console.log("Fresh meeting data:", meetingData);
+      await indexedDBStorage.updateMeeting(currentMeetingId, meetingData);
       
       setProcessingProgress(100);
       
-      // Invalidate queries to refresh the data
-      await queryClient.invalidateQueries({ queryKey: ["/api/meetings"] });
-      
       toast({
-        title: "Recording saved!",
-        description: "Your meeting has been processed successfully."
+        title: "Recording processed successfully!",
+        description: "Your meeting has been analyzed and saved."
       });
       
-      // Navigate to the meeting detail page
-      navigate(`/meetings/${meetingId}`);
+      // Reset form
+      resetRecording();
+      setTitle("");
+      setTags([]);
+      setNotes("");
+      setMeetingId(null);
+      
+      // Refresh meetings list
+      await queryClient.invalidateQueries({ queryKey: ["/api/meetings"] });
+      
     } catch (error: any) {
+      console.error("Error processing recording:", error);
       toast({
         title: "Error processing recording",
-        description: error.message,
+        description: error.message || "Failed to process recording",
         variant: "destructive"
       });
     } finally {
