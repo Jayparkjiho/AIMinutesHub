@@ -328,6 +328,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(400).json({ error: "No audio file provided" });
     }
 
+    console.log("=== TRANSCRIBE AUDIO DEBUG ===");
+    console.log("File info:", {
+      originalname: req.file.originalname,
+      mimetype: req.file.mimetype,
+      size: req.file.size
+    });
+
     try {
       const result = await transcribeAudio(req.file.buffer, req.file.originalname);
       res.json({ text: result.text, duration: result.duration });
