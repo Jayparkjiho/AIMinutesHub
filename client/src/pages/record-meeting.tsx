@@ -358,9 +358,14 @@ export default function RecordMeeting() {
             // Clear the generated action items since they're now saved to the meeting
             setGeneratedActionItems([]);
             
+            // Automatically start speaker separation after AI analysis
+            if (transcriptText) {
+              separateSpeakers(transcriptText);
+            }
+            
             toast({
               title: "AI 분석 완료",
-              description: `요약과 ${newActionItems.length}개의 액션 아이템이 자동으로 회의에 추가되었습니다.`,
+              description: `요약과 ${newActionItems.length}개의 액션 아이템이 자동으로 회의에 추가되었습니다. 화자 분리를 진행합니다.`,
             });
           }
         } catch (updateError) {
@@ -931,19 +936,7 @@ export default function RecordMeeting() {
                     <i className="ri-refresh-line mr-2"></i>
                     AI 분석 다시 실행
                   </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => separateSpeakers(transcriptText)}
-                    disabled={isSeparatingSpeakers || !transcriptText}
-                  >
-                    {isSeparatingSpeakers ? (
-                      <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-primary mr-2"></div>
-                    ) : (
-                      <i className="ri-user-voice-line mr-2"></i>
-                    )}
-                    화자 분리
-                  </Button>
+
                 </div>
               </div>
             )}
@@ -1019,8 +1012,8 @@ export default function RecordMeeting() {
                       
                       if (meetingData) {
                         const encodedData = encodeURIComponent(JSON.stringify(meetingData));
-                        // 현재 페이지에서 이동 (새 탭이 아닌)
-                        window.location.href = `/email-sender?meetingData=${encodedData}`;
+                        // wouter navigate 사용으로 변경
+                        navigate(`/email-sender?meetingData=${encodedData}`);
                       } else {
                         toast({
                           title: "오류",
