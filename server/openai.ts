@@ -10,7 +10,7 @@ const openai = new OpenAI({
 });
 
 // Transcribe audio file
-export async function transcribeAudio(audioBuffer: Buffer): Promise<{ text: string, duration: number }> {
+export async function transcribeAudio(audioBuffer: Buffer, originalName?: string): Promise<{ text: string, duration: number }> {
   let tempFilePath = '';
   
   try {
@@ -20,8 +20,17 @@ export async function transcribeAudio(audioBuffer: Buffer): Promise<{ text: stri
       fs.mkdirSync(tempDir, { recursive: true });
     }
     
-    // Create a temporary file
-    const fileName = `audio_${uuidv4()}.wav`;
+    // Determine file extension from original name or default to mp3
+    let extension = '.mp3';
+    if (originalName) {
+      const ext = path.extname(originalName).toLowerCase();
+      if (['.flac', '.m4a', '.mp3', '.mp4', '.mpeg', '.mpga', '.oga', '.ogg', '.wav', '.webm'].includes(ext)) {
+        extension = ext;
+      }
+    }
+    
+    // Create a temporary file with correct extension
+    const fileName = `audio_${uuidv4()}${extension}`;
     tempFilePath = path.join(tempDir, fileName);
     
     // Write buffer to temporary file

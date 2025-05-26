@@ -164,7 +164,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log("Processing audio file:", req.file.originalname, "Size:", req.file.size);
 
       // Process with OpenAI
-      const { text, duration } = await transcribeAudio(req.file.buffer);
+      const { text, duration } = await transcribeAudio(req.file.buffer, req.file.originalname);
       
       console.log("Transcription completed:", text.substring(0, 100) + "...");
 
@@ -329,7 +329,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
 
     try {
-      const result = await transcribeAudio(req.file.buffer);
+      const result = await transcribeAudio(req.file.buffer, req.file.originalname);
       res.json({ text: result.text, duration: result.duration });
     } catch (error: any) {
       console.error("Error transcribing audio:", error);
