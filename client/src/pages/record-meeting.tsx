@@ -207,7 +207,41 @@ export default function RecordMeeting() {
 
       // Generate title from transcript
       const generatedTitle = await generateMeetingTitle(manualText);
-      setProcessingProgress(60);
+      setProcessingProgress(40);
+
+      // Generate summary
+      let summary = "";
+      try {
+        const summaryResponse = await fetch('/api/meetings/generate-summary-text', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ transcript: manualText })
+        });
+        if (summaryResponse.ok) {
+          const summaryResult = await summaryResponse.json();
+          summary = summaryResult.summary || "";
+        }
+      } catch (error) {
+        console.error('Summary generation failed:', error);
+      }
+      setProcessingProgress(70);
+
+      // Generate action items
+      let actionItems: any[] = [];
+      try {
+        const actionResponse = await fetch('/api/meetings/generate-actions-text', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ transcript: manualText })
+        });
+        if (actionResponse.ok) {
+          const actionResult = await actionResponse.json();
+          actionItems = actionResult.actionItems || [];
+        }
+      } catch (error) {
+        console.error('Action items generation failed:', error);
+      }
+      setProcessingProgress(90);
 
       // Create meeting with transcript in IndexedDB
       saveMeeting({
@@ -215,6 +249,8 @@ export default function RecordMeeting() {
         tags,
         notes,
         transcript: manualText,
+        summary,
+        actionItems,
         date: new Date().toISOString(),
         duration: 0,
         userId: 1
@@ -225,7 +261,7 @@ export default function RecordMeeting() {
 
           toast({
             title: "Meeting saved!",
-            description: `회의가 저장되었습니다. 제목: "${title || generatedTitle}"`
+            description: `회의 분석이 완료되었습니다. 제목: "${title || generatedTitle}"`
           });
 
           setTimeout(() => {

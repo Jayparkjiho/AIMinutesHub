@@ -337,6 +337,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Generate summary from text directly
+  app.post("/api/meetings/generate-summary-text", async (req: Request, res: Response) => {
+    const { transcript } = req.body;
+    
+    if (!transcript) {
+      return res.status(400).json({ error: "No transcript provided" });
+    }
+
+    try {
+      const summary = await generateSummary(transcript);
+      res.json({ summary });
+    } catch (error: any) {
+      console.error("Error generating summary:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Generate action items from text directly
+  app.post("/api/meetings/generate-actions-text", async (req: Request, res: Response) => {
+    const { transcript } = req.body;
+    
+    if (!transcript) {
+      return res.status(400).json({ error: "No transcript provided" });
+    }
+
+    try {
+      const actionItems = await extractActionItems(transcript);
+      
+      // Convert to the format expected by our schema
+      const formattedActionItems = actionItems.map(item => ({
+        id: uuidv4(),
+        text: item.text,
+        completed: false,
+        assignee: item.assignee,
+        dueDate: item.dueDate
+      }));
+
+      res.json({ actionItems: formattedActionItems });
+    } catch (error: any) {
+      console.error("Error generating action items:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Send email (mock endpoint)
   app.post("/api/email/send", async (req: Request, res: Response) => {
     try {
