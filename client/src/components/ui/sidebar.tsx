@@ -12,6 +12,7 @@ export function Sidebar({ className }: SidebarProps) {
     { href: "/", icon: "ri-dashboard-line", label: "Dashboard" },
     { href: "/record", icon: "ri-mic-line", label: "Record Meeting" },
     { href: "/meetings", icon: "ri-file-list-3-line", label: "All Meetings" },
+    { href: "/templates", icon: "ri-file-text-line", label: "Email Templates" },
     { href: "/tags", icon: "ri-price-tag-3-line", label: "Tags" },
     { href: "/settings", icon: "ri-user-settings-line", label: "Settings" },
   ];
