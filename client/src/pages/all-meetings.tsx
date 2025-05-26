@@ -95,7 +95,7 @@ export default function AllMeetings() {
         </div>
       </div>
       
-      {/* Meetings Grid */}
+      {/* Meetings List */}
       {isLoading ? (
         <div className="text-center py-12">
           <div className="flex justify-center mb-4">
@@ -114,80 +114,137 @@ export default function AllMeetings() {
           <p>No meetings found. Try different search terms or filters.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="space-y-4">
           {filteredMeetings?.map(meeting => (
-            <Card key={meeting.id} className="hover:shadow-lg transition-shadow duration-200">
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between">
-                  <CardTitle className="text-lg font-semibold text-neutral-800 line-clamp-2">
-                    {meeting.title}
-                  </CardTitle>
-                  <div className="flex items-center text-xs text-neutral-500 ml-2">
-                    <i className="ri-time-line mr-1"></i>
-                    {formatDuration(meeting.duration)}
-                  </div>
-                </div>
-                <div className="flex items-center text-sm text-neutral-500 mt-1">
+            <Card key={meeting.id} className="p-6 hover:shadow-md transition-shadow duration-200">
+              {/* Header */}
+              <div className="flex items-start justify-between mb-4">
+                <h3 className="text-xl font-semibold text-gray-900">
+                  {meeting.title}
+                </h3>
+                <span className="text-sm text-gray-500">
+                  {new Date(meeting.date).toLocaleDateString('ko-KR', { 
+                    year: 'numeric', 
+                    month: 'numeric', 
+                    day: 'numeric',
+                    weekday: 'short'
+                  })} {new Date(meeting.date).toLocaleTimeString('ko-KR', {
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })}
+                </span>
+              </div>
+
+              {/* Meeting Info */}
+              <div className="flex items-center gap-4 mb-4 text-sm text-gray-600">
+                <div className="flex items-center">
                   <i className="ri-calendar-line mr-1"></i>
                   {new Date(meeting.date).toLocaleDateString('ko-KR')}
                 </div>
-              </CardHeader>
-              <CardContent>
-                {/* Summary Preview */}
-                {meeting.summary && (
-                  <div className="mb-4">
-                    <p className="text-sm text-neutral-600 line-clamp-3">
-                      {meeting.summary}
-                    </p>
-                  </div>
-                )}
-                
-                {/* Tags */}
-                {meeting.tags && meeting.tags.length > 0 && (
-                  <div className="mb-4">
-                    <div className="flex flex-wrap gap-1">
-                      {meeting.tags.slice(0, 3).map(tag => (
-                        <Badge key={tag} variant="secondary" className="text-xs">
-                          {tag}
-                        </Badge>
-                      ))}
-                      {meeting.tags.length > 3 && (
-                        <Badge variant="outline" className="text-xs">
-                          +{meeting.tags.length - 3}
-                        </Badge>
-                      )}
+                <div className="flex items-center">
+                  <i className="ri-user-line mr-1"></i>
+                  {meeting.participants?.length || 0}명 참석
+                </div>
+                <div className="flex items-center">
+                  <i className="ri-time-line mr-1"></i>
+                  {formatDuration(meeting.duration)}
+                </div>
+                <div className="flex items-center">
+                  <i className="ri-task-line mr-1"></i>
+                  {meeting.actionItems?.length || 0}개
+                </div>
+              </div>
+
+              {/* Summary */}
+              {meeting.summary && (
+                <div className="mb-4">
+                  <p className="text-gray-700 leading-relaxed">
+                    {meeting.summary.length > 200 
+                      ? meeting.summary.substring(0, 200) + '...' 
+                      : meeting.summary
+                    }
+                  </p>
+                </div>
+              )}
+
+              {/* Participants and Tags */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  {/* Participants */}
+                  {meeting.participants && meeting.participants.length > 0 && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-gray-600">참여자:</span>
+                      <div className="flex gap-1">
+                        {meeting.participants.slice(0, 3).map((participant, index) => (
+                          <Badge key={index} variant="outline" className="text-xs">
+                            {participant.name}
+                          </Badge>
+                        ))}
+                        {meeting.participants.length > 3 && (
+                          <Badge variant="outline" className="text-xs">
+                            +{meeting.participants.length - 3}
+                          </Badge>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                )}
-                
-                {/* Action Items Count */}
-                {meeting.actionItems && meeting.actionItems.length > 0 && (
-                  <div className="mb-4 text-sm text-neutral-600">
-                    <i className="ri-task-line mr-1"></i>
-                    {meeting.actionItems.length}개의 액션 아이템
-                  </div>
-                )}
-                
+                  )}
+
+                  {/* Tags */}
+                  {meeting.tags && meeting.tags.length > 0 && (
+                    <div className="flex items-center gap-2 ml-4">
+                      <div className="flex gap-1">
+                        {meeting.tags.slice(0, 2).map(tag => (
+                          <Badge key={tag} variant="secondary" className="text-xs">
+                            {tag}
+                          </Badge>
+                        ))}
+                        {meeting.tags.length > 2 && (
+                          <Badge variant="outline" className="text-xs">
+                            +{meeting.tags.length - 2}
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 {/* Actions */}
-                <div className="flex gap-2 pt-2">
-                  <Link href={`/meetings/${meeting.id}`} className="flex-1">
-                    <Button size="sm" className="w-full">
-                      <i className="ri-eye-line mr-1"></i>
-                      상세보기
-                    </Button>
-                  </Link>
+                <div className="flex gap-2">
                   <Button 
                     size="sm" 
                     variant="outline"
                     onClick={() => {
-                      // Delete functionality - you can implement this
+                      // View details
+                      window.open(`/meetings/${meeting.id}`, '_blank');
+                    }}
+                  >
+                    <i className="ri-eye-line mr-1"></i>
+                    상세보기
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    onClick={() => {
+                      // Send email functionality
+                      console.log('Send email for meeting:', meeting.id);
+                    }}
+                  >
+                    <i className="ri-mail-send-line mr-1"></i>
+                    이메일 발송
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                    onClick={() => {
+                      // Delete functionality
                       console.log('Delete meeting:', meeting.id);
                     }}
                   >
                     <i className="ri-delete-bin-line"></i>
                   </Button>
                 </div>
-              </CardContent>
+              </div>
             </Card>
           ))}
         </div>
