@@ -52,6 +52,24 @@ export async function transcribeAudio(audioBuffer: Buffer, originalName?: string
       headerAscii: fileHeader.toString('ascii')
     });
 
+    // Check for 3GP format and convert extension to mp4
+    const headerStr = fileHeader.toString('ascii');
+    if (headerStr.includes('ftyp3gp') || headerStr.includes('3gp')) {
+      console.log('Detected 3GP format, changing extension to .mp4');
+      // Create new file with mp4 extension
+      const mp4FileName = fileName.replace(/\.[^.]+$/, '.mp4');
+      const mp4TempFilePath = path.join(tempDir, mp4FileName);
+      
+      // Copy file with new extension
+      fs.copyFileSync(tempFilePath, mp4TempFilePath);
+      
+      // Delete old file and update path
+      fs.unlinkSync(tempFilePath);
+      tempFilePath = mp4TempFilePath;
+      
+      console.log('Converted to:', tempFilePath);
+    }
+
     // Create a readable stream for OpenAI with explicit filename
     const fileStream = fs.createReadStream(tempFilePath);
     
