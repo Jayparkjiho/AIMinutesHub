@@ -407,26 +407,108 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Send email (mock endpoint)
+  // Gmail SMTP email sending endpoint
   app.post("/api/email/send", async (req: Request, res: Response) => {
     try {
-      const { to, subject, body } = req.body;
+      const { to, cc, bcc, subject, text, html, gmailConfig } = req.body;
       
-      // In a real application, you would integrate with an email service
-      console.log("Email would be sent:", { to, subject, body: body.substring(0, 100) + "..." });
-      
-      // Simulate sending email
-      res.json({ 
-        success: true, 
-        message: "Email sent successfully",
-        details: {
-          to: Array.isArray(to) ? to : [to],
-          subject,
-          timestamp: new Date().toISOString()
-        }
+      if (!gmailConfig || !gmailConfig.email || !gmailConfig.password) {
+        return res.status(400).json({ 
+          error: 'Gmail 계정 정보가 필요합니다. 이메일과 앱 비밀번호를 입력해주세요.' 
+        });
+      }
+
+      if (!to || !Array.isArray(to) || to.length === 0) {
+        return res.status(400).json({ error: '받는 사람 이메일이 필요합니다.' });
+      }
+
+      if (!subject || !subject.trim()) {
+        return res.status(400).json({ error: '제목이 필요합니다.' });
+      }
+
+      if (!text && !html) {
+        return res.status(400).json({ error: '메일 내용이 필요합니다.' });
+      }
+
+      const { GmailSMTPService } = await import("./gmail-smtp.js");
+      const gmailService = new GmailSMTPService({
+        email: gmailConfig.email,
+        password: gmailConfig.password
       });
+
+      // SMTP 연결 테스트
+      const connectionTest = await gmailService.testConnection();
+      if (!connectionTest.success) {
+        return res.status(401).json({ 
+          error: `Gmail SMTP 연결 실패: ${connectionTest.error}. Gmail 계정 설정을 확인해주세요.` 
+        });
+      }
+
+      // 메일 전송
+      const result = await gmailService.sendEmail({
+        to,
+        cc,
+        bcc,
+        subject,
+        text,
+        html
+      });
+
+      if (result.success) {
+        res.json({
+          success: true,
+          message: '메일이 성공적으로 전송되었습니다.',
+          messageId: result.messageId
+        });
+      } else {
+        res.status(500).json({
+          error: `메일 전송 실패: ${result.error}`
+        });
+      }
+
     } catch (error: any) {
-      res.status(500).json({ message: `Error sending email: ${error.message}` });
+      console.error("Error sending email:", error);
+      res.status(500).json({ 
+        error: error.message || '메일 전송 중 오류가 발생했습니다.' 
+      });
+    }
+  });
+
+  // Gmail SMTP 연결 테스트 endpoint
+  app.post("/api/email/test", async (req: Request, res: Response) => {
+    try {
+      const { gmailConfig } = req.body;
+      
+      if (!gmailConfig || !gmailConfig.email || !gmailConfig.password) {
+        return res.status(400).json({ 
+          error: 'Gmail 계정 정보가 필요합니다.' 
+        });
+      }
+
+      const { GmailSMTPService } = await import("./gmail-smtp.js");
+      const gmailService = new GmailSMTPService({
+        email: gmailConfig.email,
+        password: gmailConfig.password
+      });
+
+      const result = await gmailService.testConnection();
+      
+      if (result.success) {
+        res.json({
+          success: true,
+          message: 'Gmail SMTP 연결이 성공했습니다.'
+        });
+      } else {
+        res.status(401).json({
+          error: `연결 실패: ${result.error}`
+        });
+      }
+
+    } catch (error: any) {
+      console.error("Error testing Gmail connection:", error);
+      res.status(500).json({ 
+        error: error.message || 'Gmail 연결 테스트 중 오류가 발생했습니다.' 
+      });
     }
   });
 
