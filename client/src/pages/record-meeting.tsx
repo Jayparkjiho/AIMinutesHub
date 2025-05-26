@@ -607,18 +607,6 @@ export default function RecordMeeting() {
       setIsProcessing(true);
       setProcessingProgress(0);
       
-      // Create meeting first if it doesn't exist
-      let currentMeetingId = meetingId;
-      if (!currentMeetingId) {
-        const response = await apiRequest("POST", "/api/meetings", {
-          title: title || "Untitled Meeting",
-          tags: tags,
-          notes: notes || ""
-        });
-        currentMeetingId = response.id;
-        setMeetingId(currentMeetingId);
-      }
-      
       setProcessingProgress(20);
       
       // Transcribe audio using OpenAI
@@ -666,21 +654,21 @@ export default function RecordMeeting() {
       
       // Save meeting data to IndexedDB
       const meetingData = {
-        id: currentMeetingId,
-        title: titleResponse.title || title || "Untitled Meeting", 
+        title: (titleResponse as any).title || title || "Untitled Meeting", 
         date: new Date().toISOString(),
         duration: Math.round(transcribeResult.duration || recordingTime),
         tags: tags,
         userId: 1,
-        transcript: separateResponse.separatedTranscript || transcribeResult.text,
-        summary: summaryResponse.summary,
-        actionItems: actionsResponse.actionItems || [],
+        transcript: (separateResponse as any).separatedTranscript || transcribeResult.text,
+        summary: (summaryResponse as any).summary,
+        actionItems: (actionsResponse as any).actionItems || [],
         participants: [],
         notes: notes || ""
       };
       
       console.log("Fresh meeting data:", meetingData);
-      await indexedDBStorage.updateMeeting(currentMeetingId, meetingData);
+      // Use saveMeeting to create new meeting in IndexedDB
+      const savedMeeting = await indexedDBStorage.saveMeeting(meetingData);
       
       setProcessingProgress(100);
       
