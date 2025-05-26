@@ -207,6 +207,7 @@ export default function Dashboard() {
                       key={recording.id} 
                       recording={recording} 
                       onDeleteSuccess={() => {}}
+                      onMeetingClick={handleMeetingClick}
                     />
                   ))
                 )}

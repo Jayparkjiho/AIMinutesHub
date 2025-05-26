@@ -3,15 +3,15 @@ import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { formatDuration } from "@/hooks/use-audio-recorder";
 import { format } from "date-fns";
-import { Link } from "wouter";
 import { useIndexedDBMeetings } from "@/hooks/use-indexeddb";
 
 interface RecordingRowProps {
   recording: Meeting;
   onDeleteSuccess?: () => void;
+  onMeetingClick?: (meeting: Meeting) => void;
 }
 
-export function RecordingRow({ recording, onDeleteSuccess }: RecordingRowProps) {
+export function RecordingRow({ recording, onDeleteSuccess, onMeetingClick }: RecordingRowProps) {
   const { toast } = useToast();
   const [isDeleting, setIsDeleting] = useState(false);
   const { deleteMeeting } = useIndexedDBMeetings();
@@ -73,15 +73,19 @@ export function RecordingRow({ recording, onDeleteSuccess }: RecordingRowProps) 
     }
   };
   
+  const handleRowClick = () => {
+    if (onMeetingClick) {
+      onMeetingClick(recording);
+    }
+  };
+
   return (
-    <tr className="hover:bg-neutral-50">
+    <tr className="hover:bg-neutral-50 cursor-pointer" onClick={handleRowClick}>
       <td className="px-4 py-3">
-        <Link href={`/meetings/${recording.id}`}>
-          <a className="flex items-center">
-            <i className="ri-file-text-line text-lg text-primary mr-2"></i>
-            <span className="font-medium text-neutral-800">{recording.title}</span>
-          </a>
-        </Link>
+        <div className="flex items-center">
+          <i className="ri-file-text-line text-lg text-primary mr-2"></i>
+          <span className="font-medium text-neutral-800">{recording.title}</span>
+        </div>
       </td>
       <td className="px-4 py-3 text-sm text-neutral-600">{formattedDate}</td>
       <td className="px-4 py-3 text-sm text-neutral-600">{formattedDuration}</td>
@@ -94,15 +98,19 @@ export function RecordingRow({ recording, onDeleteSuccess }: RecordingRowProps) 
       </td>
       <td className="px-4 py-3 text-sm">
         <div className="flex space-x-2">
-          <Link href={`/meeting/${recording.id}/edit`}>
-            <a 
-              className="text-neutral-500 hover:text-primary" 
-              title="Edit"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <i className="ri-edit-line"></i>
-            </a>
-          </Link>
+          <button 
+            className="text-neutral-500 hover:text-primary" 
+            title="Edit"
+            onClick={(e) => {
+              e.stopPropagation();
+              // Edit functionality - opens the meeting in modal
+              if (onMeetingClick) {
+                onMeetingClick(recording);
+              }
+            }}
+          >
+            <i className="ri-edit-line"></i>
+          </button>
           <button 
             className="text-neutral-500 hover:text-primary" 
             title="Download" 
