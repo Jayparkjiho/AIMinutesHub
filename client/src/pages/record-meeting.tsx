@@ -355,9 +355,12 @@ export default function RecordMeeting() {
             console.log('Updated meeting data:', updatedMeeting);
             await indexedDBStorage.updateMeeting(meetingId, updatedMeeting);
             
+            // Clear the generated action items since they're now saved to the meeting
+            setGeneratedActionItems([]);
+            
             toast({
               title: "AI 분석 완료",
-              description: "요약과 액션 아이템이 생성되어 저장되었습니다. 상세보기에서 확인하세요.",
+              description: `요약과 ${newActionItems.length}개의 액션 아이템이 자동으로 회의에 추가되었습니다.`,
             });
           }
         } catch (updateError) {
@@ -989,18 +992,6 @@ export default function RecordMeeting() {
                     </div>
                   ))}
                 </div>
-                <div className="mt-3">
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={applyAIActionItems}
-                    disabled={!meetingId}
-                    className="bg-green-50 border-green-200 hover:bg-green-100"
-                  >
-                    <i className="ri-add-line mr-2"></i>
-                    액션 아이템을 회의에 추가
-                  </Button>
-                </div>
               </div>
             )}
 
@@ -1018,21 +1009,33 @@ export default function RecordMeeting() {
               )}
 
               {/* Email Send Button - Show when analysis is complete and meeting is saved */}
-              {meetingId && (generatedSummary || generatedActionItems.length > 0) && (
+              {meetingId && generatedSummary && (
                 <Button 
-                  onClick={() => {
-                    // 회의 데이터를 이메일 페이지로 전달
-                    const meetingData = encodeURIComponent(JSON.stringify({
-                      id: meetingId,
-                      title: title || "Untitled Meeting",
-                      summary: generatedSummary,
-                      actionItems: generatedActionItems,
-                      transcript: transcriptText,
-                      tags: tags,
-                      date: new Date().toISOString(),
-                      duration: 0
-                    }));
-                    window.open(`/email-sender?meetingData=${meetingData}`, '_blank');
+                  onClick={async () => {
+                    try {
+                      // 최신 회의 데이터를 가져와서 이메일 페이지로 이동
+                      await indexedDBStorage.init();
+                      const meetingData = await indexedDBStorage.getMeeting(meetingId);
+                      
+                      if (meetingData) {
+                        const encodedData = encodeURIComponent(JSON.stringify(meetingData));
+                        // 현재 페이지에서 이동 (새 탭이 아닌)
+                        window.location.href = `/email-sender?meetingData=${encodedData}`;
+                      } else {
+                        toast({
+                          title: "오류",
+                          description: "회의 데이터를 찾을 수 없습니다.",
+                          variant: "destructive"
+                        });
+                      }
+                    } catch (error) {
+                      console.error("Error loading meeting data:", error);
+                      toast({
+                        title: "오류",
+                        description: "회의 데이터 로딩 중 오류가 발생했습니다.",
+                        variant: "destructive"
+                      });
+                    }
                   }}
                   variant="outline"
                   className="bg-blue-50 border-blue-200 hover:bg-blue-100"
