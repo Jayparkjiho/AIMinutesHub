@@ -8,10 +8,13 @@ import { useIndexedDBMeetings } from "@/hooks/use-indexeddb";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatDuration } from "@/hooks/use-audio-recorder";
+import { MeetingDetailModal } from "@/components/MeetingDetailModal";
 
 export default function AllMeetings() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTag, setSelectedTag] = useState("All Tags");
+  const [selectedMeeting, setSelectedMeeting] = useState<Meeting | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const { meetings, isLoading } = useIndexedDBMeetings();
   
   const isError = false; // IndexedDB doesn't have loading errors in this context
@@ -214,8 +217,8 @@ export default function AllMeetings() {
                     size="sm" 
                     variant="outline"
                     onClick={() => {
-                      // View details
-                      window.open(`/meetings/${meeting.id}`, '_blank');
+                      setSelectedMeeting(meeting);
+                      setIsModalOpen(true);
                     }}
                   >
                     <i className="ri-eye-line mr-1"></i>
@@ -249,6 +252,16 @@ export default function AllMeetings() {
           ))}
         </div>
       )}
+
+      {/* Meeting Detail Modal */}
+      <MeetingDetailModal 
+        meeting={selectedMeeting}
+        isOpen={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false);
+          setSelectedMeeting(null);
+        }}
+      />
     </div>
   );
 }

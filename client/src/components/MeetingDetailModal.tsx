@@ -1,0 +1,209 @@
+import { useState } from "react";
+import { Meeting } from "@/lib/types";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { formatDuration } from "@/hooks/use-audio-recorder";
+import { ScrollArea } from "@/components/ui/scroll-area";
+
+interface MeetingDetailModalProps {
+  meeting: Meeting | null;
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+export function MeetingDetailModal({ meeting, isOpen, onClose }: MeetingDetailModalProps) {
+  if (!meeting) return null;
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-4xl max-h-[90vh] p-0">
+        <DialogHeader className="p-6 pb-4">
+          <div className="flex items-start justify-between">
+            <div className="flex-1">
+              <DialogTitle className="text-xl font-semibold text-gray-900 mb-4">
+                {meeting.title}
+              </DialogTitle>
+              
+              {/* Meeting Info */}
+              <div className="grid grid-cols-3 gap-6 text-sm">
+                <div className="flex items-center text-gray-600">
+                  <i className="ri-calendar-line mr-2"></i>
+                  <span className="font-medium">날짜:</span>
+                  <span className="ml-1">{new Date(meeting.date).toLocaleDateString('ko-KR')}</span>
+                </div>
+                <div className="flex items-center text-gray-600">
+                  <i className="ri-user-line mr-2"></i>
+                  <span className="font-medium">진행자:</span>
+                  <span className="ml-1">{meeting.participants?.find(p => p.isHost)?.name || '김PM'}</span>
+                </div>
+                <div className="flex items-center text-gray-600">
+                  <i className="ri-group-line mr-2"></i>
+                  <span className="font-medium">참석자:</span>
+                  <span className="ml-1">{meeting.participants?.length || 0}명</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </DialogHeader>
+
+        <ScrollArea className="flex-1 px-6">
+          <div className="space-y-6 pb-6">
+            {/* Summary Section */}
+            {meeting.summary && (
+              <div>
+                <h3 className="text-lg font-semibold mb-3">회의 요약</h3>
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">
+                    {meeting.summary}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Participants Section */}
+            {meeting.participants && meeting.participants.length > 0 && (
+              <div>
+                <h3 className="text-lg font-semibold mb-3">참석자</h3>
+                <div className="flex flex-wrap gap-2">
+                  {meeting.participants.map((participant, index) => (
+                    <Badge 
+                      key={index} 
+                      variant={participant.isHost ? "default" : "outline"}
+                      className="px-3 py-1"
+                    >
+                      {participant.name}
+                      {participant.isHost && <span className="ml-1 text-xs">(진행자)</span>}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Action Items Section */}
+            {meeting.actionItems && meeting.actionItems.length > 0 && (
+              <div>
+                <h3 className="text-lg font-semibold mb-3">액션 아이템 논의사항</h3>
+                <div className="space-y-3">
+                  {meeting.actionItems.map((item, index) => (
+                    <div key={item.id} className="border-l-4 border-blue-400 bg-blue-50 p-4 rounded-r-lg">
+                      <h4 className="font-medium text-blue-900 mb-2">
+                        AI 추천 알고리즘 도입
+                      </h4>
+                      <p className="text-sm text-blue-800 mb-3">
+                        {item.text}
+                      </p>
+                      
+                      <div className="space-y-2">
+                        <div>
+                          <span className="font-medium text-blue-900">결정사항:</span>
+                          <ul className="list-disc list-inside ml-4 text-sm text-blue-800">
+                            <li>초기에는 간단한 룰 기반으로 시작</li>
+                            <li>추후 강화학습 접대로 발전</li>
+                          </ul>
+                        </div>
+                        
+                        <div className="flex items-center">
+                          <span className="font-medium text-blue-900 mr-2">액션 아이템:</span>
+                          <div className="flex items-center space-x-4">
+                            <Badge variant="outline" className="bg-white">
+                              {item.assignee || '박개발'} - 추천 시스템 초기 구현 작업
+                            </Badge>
+                            <span className="text-sm text-blue-700">
+                              {item.dueDate || '이번 주'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* AI 도입 효과 측정 Section */}
+            <div>
+              <h3 className="text-lg font-semibold mb-3">AI 도입 효과 측정</h3>
+              <div className="border-l-4 border-green-400 bg-green-50 p-4 rounded-r-lg">
+                <p className="text-sm text-green-800 mb-3">
+                  AI 도입 효과를 측정하기 위한 KPI 설정 및 A/B 테스트 계획을 논의하였습니다.
+                </p>
+                
+                <div className="space-y-2">
+                  <div>
+                    <span className="font-medium text-green-900">결정사항:</span>
+                    <ul className="list-disc list-inside ml-4 text-sm text-green-800">
+                      <li>주간 노출 대비 클릭률 상승 목표</li>
+                      <li>월 내 전환율 효과 주요 KPI로 설정</li>
+                    </ul>
+                  </div>
+                  
+                  <div className="flex items-center">
+                    <span className="font-medium text-green-900 mr-2">액션 아이템:</span>
+                    <div className="flex items-center space-x-4">
+                      <Badge variant="outline" className="bg-white">
+                        이기획 - AI 도입 효과 측정 계획 수립
+                      </Badge>
+                      <span className="text-sm text-green-700">이번 주</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Next Meeting Section */}
+            <div>
+              <h3 className="text-lg font-semibold mb-3">다음 회의</h3>
+              <div className="bg-gray-50 rounded-lg p-4 space-y-2">
+                <div className="flex items-center text-sm">
+                  <span className="font-medium text-gray-700 w-12">일시:</span>
+                  <span className="text-gray-600">미정</span>
+                </div>
+                <div className="flex items-center text-sm">
+                  <span className="font-medium text-gray-700 w-12">안건:</span>
+                  <span className="text-gray-600">미정</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Transcript Section */}
+            {meeting.transcript && (
+              <div>
+                <h3 className="text-lg font-semibold mb-3">원본 내용</h3>
+                <div className="bg-gray-50 rounded-lg p-4 max-h-60 overflow-y-auto">
+                  <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">
+                    {meeting.transcript}
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+        </ScrollArea>
+
+        {/* Footer Actions */}
+        <div className="flex justify-between items-center p-6 pt-4 border-t">
+          <Button 
+            variant="destructive" 
+            onClick={() => {
+              // Delete functionality
+              console.log('Delete meeting:', meeting.id);
+            }}
+          >
+            <i className="ri-delete-bin-line mr-2"></i>
+            삭제
+          </Button>
+          
+          <Button 
+            onClick={() => {
+              // Send email functionality
+              console.log('Send email for meeting:', meeting.id);
+            }}
+          >
+            <i className="ri-mail-send-line mr-2"></i>
+            이메일 발송
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
