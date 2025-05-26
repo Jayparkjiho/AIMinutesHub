@@ -826,51 +826,7 @@ ${meeting.notes}
         </div>
       </div>
 
-      {/* 회의 정보 (있는 경우) */}
-      {meetingData && (
-        <Card className="mt-6">
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <i className="ri-information-line mr-2"></i>
-              회의 정보
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <p className="text-sm text-neutral-500">제목</p>
-                <p className="font-medium">{meetingData.title}</p>
-              </div>
-              <div>
-                <p className="text-sm text-neutral-500">날짜</p>
-                <p className="font-medium">
-                  {new Date(meetingData.date).toLocaleDateString('ko-KR')}
-                </p>
-              </div>
-              {meetingData.tags && meetingData.tags.length > 0 && (
-                <div>
-                  <p className="text-sm text-neutral-500 mb-2">태그</p>
-                  <div className="flex flex-wrap gap-2">
-                    {meetingData.tags.map((tag, index) => (
-                      <Badge key={index} variant="secondary">
-                        {tag}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {meetingData.summary && (
-                <div className="md:col-span-2">
-                  <p className="text-sm text-neutral-500 mb-2">요약</p>
-                  <p className="text-sm text-neutral-700 bg-neutral-50 p-3 rounded-md">
-                    {meetingData.summary.substring(0, 200)}...
-                  </p>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+
     </div>
   );
 }
