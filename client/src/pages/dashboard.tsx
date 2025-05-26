@@ -66,7 +66,18 @@ export default function Dashboard() {
     // Calculate word count
     stats.wordCount = meetings.reduce((acc, meeting) => {
       if (meeting.transcript) {
-        return acc + meeting.transcript.split(/\s+/).length;
+        try {
+          // transcript가 문자열인지 확인
+          const transcript = typeof meeting.transcript === 'string' 
+            ? meeting.transcript 
+            : JSON.stringify(meeting.transcript);
+
+          // 공백 문자로 분할하여 단어 수 계산
+          return acc + transcript.trim().split(/\s+/).filter(word => word.length > 0).length;
+        } catch (error) {
+          console.error('Error calculating word count:', error);
+          return acc;
+        }
       }
       return acc;
     }, 0);

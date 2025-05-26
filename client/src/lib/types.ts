@@ -7,6 +7,7 @@ export interface Meeting {
   userId: number;
   transcript?: string;
   summary?: string;
+  emailTemplate?: string;
   audioUrl?: string;
   participants?: Participant[];
   actionItems?: ActionItem[];

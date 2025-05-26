@@ -56,8 +56,8 @@ export function MeetingDetailModal({ meeting, isOpen, onClose, onDeleteSuccess }
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] p-0 overflow-hidden">
-        <DialogHeader className="px-6 py-4 border-b">
+      <DialogContent className="max-w-4xl max-h-[90vh] p-0 flex flex-col">
+        <DialogHeader className="px-6 py-4 border-b bg-white">
           <DialogTitle className="text-xl font-bold">{meeting.title}</DialogTitle>
           <div className="flex flex-wrap gap-4 mt-2 text-sm">
             <div className="flex items-center text-gray-600">
@@ -86,8 +86,8 @@ export function MeetingDetailModal({ meeting, isOpen, onClose, onDeleteSuccess }
           </div>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto px-6">
-          <div className="space-y-6 pb-6">
+        <div className="flex-1 overflow-y-auto min-h-0">
+          <div className="px-6 space-y-6 py-6">
             {/* Summary Section */}
             <div>
               <h3 className="text-lg font-semibold mb-3">회의 요약</h3>
@@ -160,7 +160,7 @@ export function MeetingDetailModal({ meeting, isOpen, onClose, onDeleteSuccess }
             {meeting.transcript && (
               <div>
                 <h3 className="text-lg font-semibold mb-3">회의 전문</h3>
-                <div className="bg-gray-50 rounded-lg p-4 max-h-64 overflow-y-auto">
+                <div className="bg-gray-50 rounded-lg p-4">
                   <p className="text-gray-700 leading-relaxed whitespace-pre-wrap text-sm">
                     {meeting.transcript}
                   </p>
@@ -197,34 +197,17 @@ export function MeetingDetailModal({ meeting, isOpen, onClose, onDeleteSuccess }
         </div>
 
         {/* Footer Actions */}
-        <div className="px-6 py-4 border-t bg-gray-50 flex gap-3 justify-end">
+        <div className="px-6 py-4 border-t bg-white flex gap-3 justify-end">
           <Button variant="outline" onClick={onClose}>
             닫기
           </Button>
-          <Button 
-            variant="outline" 
-            onClick={handleEmailSend}
-            className="bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200"
-          >
-            <i className="ri-mail-send-line mr-2"></i>
-            Gmail 발송
+          <Button variant="outline" onClick={handleEmailSend}>
+            <i className="ri-mail-line mr-2"></i>
+            이메일 작성
           </Button>
-          <Button 
-            variant="destructive" 
-            onClick={handleDelete}
-            disabled={isDeleting}
-          >
-            {isDeleting ? (
-              <>
-                <i className="ri-loader-4-line mr-2 animate-spin"></i>
-                삭제 중...
-              </>
-            ) : (
-              <>
-                <i className="ri-delete-bin-line mr-2"></i>
-                삭제
-              </>
-            )}
+          <Button variant="destructive" onClick={handleDelete} disabled={isDeleting}>
+            <i className="ri-delete-bin-line mr-2"></i>
+            삭제
           </Button>
         </div>
       </DialogContent>
