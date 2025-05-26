@@ -1,4 +1,4 @@
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useEffect, useState, useRef } from "react";
 import { useParams, useLocation } from "wouter";
 import { Meeting, ActionItem } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
@@ -7,8 +7,6 @@ import { format, parseISO } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useState, useRef } from "react";
-import { useIndexedDBMeetings } from "@/hooks/use-indexeddb";
 import { indexedDBStorage } from "@/lib/indexeddb";
 
 export default function MeetingDetail() {
@@ -27,627 +25,411 @@ export default function MeetingDetail() {
   const audioRef = useRef<HTMLAudioElement>(null);
   
   // Fetch meeting data from IndexedDB
-  const { 
-    data: meeting, 
-    isLoading, 
-    isError, 
-    error 
-  } = useQuery<Meeting>({
-    queryKey: [`indexeddb-meeting-${id}`],
-    queryFn: async () => {
-      if (!id) throw new Error("No meeting ID provided");
-      await indexedDBStorage.init();
-      const meetingData = await indexedDBStorage.getMeeting(parseInt(id));
-      if (!meetingData) throw new Error("Meeting not found");
-      return meetingData;
-    },
-    enabled: !!id,
-  });
-  
-  // Add tag mutation
-  const addTagMutation = useMutation({
-    mutationFn: async (tag: string) => {
-      if (!meeting) return null;
-      const tags = [...(meeting.tags || [])];
-      if (!tags.includes(tag)) {
-        tags.push(tag);
-        const response = await apiRequest("PATCH", `/api/meetings/${id}`, { tags });
-        return response.json();
+  const [meeting, setMeeting] = useState<Meeting | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isError, setIsError] = useState(false);
+
+  useEffect(() => {
+    const loadMeeting = async () => {
+      if (!id) return;
+      try {
+        setIsLoading(true);
+        await indexedDBStorage.init();
+        const meetingData = await indexedDBStorage.getMeeting(parseInt(id));
+        if (meetingData) {
+          setMeeting(meetingData);
+        } else {
+          setIsError(true);
+        }
+      } catch (error) {
+        console.error('Error loading meeting:', error);
+        setIsError(true);
+      } finally {
+        setIsLoading(false);
       }
-      return meeting;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/meetings/${id}`] });
-      setNewTag("");
-    },
-    onError: (error) => {
+    };
+
+    loadMeeting();
+  }, [id]);
+  
+  // Add tag function
+  const addTag = async (tag: string) => {
+    if (!meeting) return;
+    
+    try {
+      const updatedMeeting = {
+        ...meeting,
+        tags: [...(meeting.tags || []), tag]
+      };
+      
+      await indexedDBStorage.updateMeeting(meeting.id, updatedMeeting);
+      setMeeting(updatedMeeting);
+      
       toast({
-        title: "Error adding tag",
-        description: error.message,
-        variant: "destructive"
+        title: "Success",
+        description: "Tag added successfully",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to add tag",
+        variant: "destructive",
       });
     }
-  });
-  
-  // Add action item mutation
-  const addActionItemMutation = useMutation({
-    mutationFn: async (actionItem: { text: string, assignee?: string, dueDate?: string }) => {
-      const response = await apiRequest("POST", `/api/meetings/${id}/action-items`, actionItem);
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/meetings/${id}`] });
-      setNewActionItem({ text: "", assignee: "", dueDate: "" });
-    },
-    onError: (error) => {
+  };
+
+  // Remove tag function
+  const removeTag = async (tagToRemove: string) => {
+    if (!meeting) return;
+    
+    try {
+      const updatedMeeting = {
+        ...meeting,
+        tags: meeting.tags?.filter(tag => tag !== tagToRemove) || []
+      };
+      
+      await indexedDBStorage.updateMeeting(meeting.id, updatedMeeting);
+      setMeeting(updatedMeeting);
+      
       toast({
-        title: "Error adding action item",
-        description: error.message,
-        variant: "destructive"
+        title: "Success",
+        description: "Tag removed successfully",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to remove tag",
+        variant: "destructive",
       });
     }
-  });
-  
-  // Toggle action item completion mutation
-  const toggleActionItemMutation = useMutation({
-    mutationFn: async ({ itemId, completed }: { itemId: string, completed: boolean }) => {
-      const response = await apiRequest(
-        "PATCH", 
-        `/api/meetings/${id}/action-items/${itemId}`, 
-        { completed }
-      );
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/meetings/${id}`] });
-    },
-    onError: (error) => {
+  };
+
+  // Add action item function
+  const addActionItem = async (actionItem: { text: string; assignee: string; dueDate: string }) => {
+    if (!meeting) return;
+    
+    try {
+      const newActionItemWithId: ActionItem = {
+        id: `action_${Date.now()}`,
+        text: actionItem.text,
+        completed: false,
+        assignee: actionItem.assignee || undefined,
+        dueDate: actionItem.dueDate || undefined,
+      };
+      
+      const updatedMeeting = {
+        ...meeting,
+        actionItems: [...(meeting.actionItems || []), newActionItemWithId]
+      };
+      
+      await indexedDBStorage.updateMeeting(meeting.id, updatedMeeting);
+      setMeeting(updatedMeeting);
+      
       toast({
-        title: "Error updating action item",
-        description: error.message,
-        variant: "destructive"
+        title: "Success",
+        description: "Action item added successfully",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to add action item",
+        variant: "destructive",
       });
     }
-  });
-  
-  // Regenerate summary mutation
-  const regenerateSummaryMutation = useMutation({
-    mutationFn: async () => {
-      const response = await apiRequest("POST", `/api/meetings/${id}/summary`);
-      return response.json();
-    },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: [`/api/meetings/${id}`] });
+  };
+
+  // Toggle action item completion
+  const toggleActionItem = async (itemId: string) => {
+    if (!meeting) return;
+    
+    try {
+      const updatedActionItems = meeting.actionItems?.map(item =>
+        item.id === itemId ? { ...item, completed: !item.completed } : item
+      ) || [];
+      
+      const updatedMeeting = {
+        ...meeting,
+        actionItems: updatedActionItems
+      };
+      
+      await indexedDBStorage.updateMeeting(meeting.id, updatedMeeting);
+      setMeeting(updatedMeeting);
+      
       toast({
-        title: "Summary regenerated",
-        description: "The meeting summary has been updated."
+        title: "Success",
+        description: "Action item updated successfully",
       });
-    },
-    onError: (error) => {
+    } catch (error) {
       toast({
-        title: "Error regenerating summary",
-        description: error.message,
-        variant: "destructive"
+        title: "Error",
+        description: "Failed to update action item",
+        variant: "destructive",
       });
     }
-  });
-  
-  if (isLoading) {
-    return (
-      <div className="px-4 py-6 md:px-8 flex justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
-  
-  if (isError || !meeting) {
-    return (
-      <div className="px-4 py-6 md:px-8">
-        <div className="p-4 bg-red-50 text-red-600 rounded-md">
-          Error loading meeting: {error?.message || "Meeting not found"}
-        </div>
-        <Button 
-          variant="outline" 
-          className="mt-4"
-          onClick={() => navigate("/")}
-        >
-          Back to Dashboard
-        </Button>
-      </div>
-    );
-  }
-  
-  // Format meeting data
-  const formattedDate = format(parseISO(meeting.date), "MMMM d, yyyy");
-  const formattedDuration = formatDuration(meeting.duration);
-  const participantCount = meeting.participants?.length || 0;
-  
-  // Handle audio playback
-  const toggleAudioPlayback = () => {
+  };
+
+  // Delete meeting function
+  const deleteMeeting = async () => {
+    if (!meeting) return;
+    
+    if (window.confirm("Are you sure you want to delete this meeting?")) {
+      try {
+        await indexedDBStorage.deleteMeeting(meeting.id);
+        
+        toast({
+          title: "Success",
+          description: "Meeting deleted successfully",
+        });
+        
+        navigate("/meetings");
+      } catch (error) {
+        toast({
+          title: "Error",
+          description: "Failed to delete meeting",
+          variant: "destructive",
+        });
+      }
+    }
+  };
+
+  const handlePlayPause = () => {
     if (audioRef.current) {
       if (isPlaying) {
         audioRef.current.pause();
       } else {
-        audioRef.current.play().catch(err => {
-          toast({
-            title: "Playback error",
-            description: "Could not play the audio recording.",
-            variant: "destructive"
-          });
-        });
+        audioRef.current.play();
       }
       setIsPlaying(!isPlaying);
     }
   };
-  
-  // Handle adding a tag
-  const handleAddTag = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (newTag.trim()) {
-      addTagMutation.mutate(newTag.trim());
+
+  const handleTimeUpdate = () => {
+    if (audioRef.current) {
+      setCurrentTime(audioRef.current.currentTime);
     }
   };
-  
-  // Handle adding an action item
-  const handleAddActionItem = (e: React.FormEvent) => {
-    e.preventDefault();
+
+  const handleAddTag = () => {
+    if (newTag.trim() && !meeting?.tags?.includes(newTag.trim())) {
+      addTag(newTag.trim());
+      setNewTag("");
+    }
+  };
+
+  const handleAddActionItem = () => {
     if (newActionItem.text.trim()) {
-      addActionItemMutation.mutate({
-        text: newActionItem.text,
-        assignee: newActionItem.assignee || undefined,
-        dueDate: newActionItem.dueDate || undefined
-      });
+      addActionItem(newActionItem);
+      setNewActionItem({ text: "", assignee: "", dueDate: "" });
     }
   };
-  
-  // Handle toggling action item completion
-  const handleToggleActionItem = (itemId: string, currentStatus: boolean) => {
-    toggleActionItemMutation.mutate({ itemId, completed: !currentStatus });
-  };
-  
-  // Format transcript for display
-  const formatTranscriptForDisplay = (transcript?: string) => {
-    if (!transcript) return null;
-    
-    // Simple formatting assuming format like "Name (00:00:00): Text"
-    const lines = transcript.split('\n').filter(line => line.trim());
-    
-    return lines.map((line, index) => {
-      const match = line.match(/^(.+?)\s*\((\d{2}:\d{2}:\d{2})\):\s*(.+)$/);
-      
-      if (match) {
-        const [_, name, timestamp, text] = match;
-        
-        // Find corresponding participant for the color
-        const participant = meeting.participants?.find(p => 
-          p.name.toLowerCase() === name.toLowerCase().trim()
-        );
-        
-        const colorClass = participant?.isHost 
-          ? "bg-primary/10 text-primary" 
-          : "bg-secondary/10 text-secondary";
-        
-        return (
-          <div key={index} className="mb-4 pb-4 border-b border-neutral-100">
-            <div className="flex mb-2">
-              <div className={`w-6 h-6 rounded-full ${colorClass} flex items-center justify-center mr-2 flex-shrink-0`}>
-                {name.charAt(0).toUpperCase()}
-              </div>
-              <div>
-                <div className="flex items-baseline">
-                  <span className="font-medium text-neutral-800 mr-2">{name}</span>
-                  <span className="text-xs text-neutral-500">{timestamp}</span>
-                </div>
-                <p>{text}</p>
-              </div>
-            </div>
-          </div>
-        );
-      }
-      
-      // Fallback for lines that don't match the pattern
-      return (
-        <p key={index} className="mb-4">{line}</p>
-      );
-    });
-  };
-  
-  return (
-    <div className="px-4 py-6 md:px-8">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
-        <div>
-          <div className="flex items-center mb-1">
-            <button 
-              className="mr-2 text-neutral-500 hover:text-neutral-700"
-              onClick={() => navigate("/")}
-              aria-label="Back to dashboard"
-            >
-              <i className="ri-arrow-left-line"></i>
-            </button>
-            <h1 className="text-2xl font-bold text-neutral-800">{meeting.title}</h1>
-          </div>
-          <div className="flex items-center text-neutral-500 text-sm">
-            <span className="flex items-center mr-4">
-              <i className="ri-calendar-line mr-1"></i> {formattedDate}
-            </span>
-            <span className="flex items-center mr-4">
-              <i className="ri-time-line mr-1"></i> {formattedDuration}
-            </span>
-            <span className="flex items-center">
-              <i className="ri-user-line mr-1"></i> {participantCount} participants
-            </span>
-          </div>
+
+  if (isLoading) {
+    return (
+      <div className="container mx-auto p-6">
+        <div className="flex justify-center items-center min-h-[400px]">
+          <div className="text-lg">Loading meeting...</div>
         </div>
-        <div className="mt-4 md:mt-0 flex space-x-2">
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={() => {
-              // Create a download for transcript
-              if (meeting.transcript) {
-                const element = document.createElement("a");
-                const file = new Blob([meeting.transcript], { type: "text/plain" });
-                element.href = URL.createObjectURL(file);
-                element.download = `${meeting.title.replace(/\s+/g, "_")}_transcript.txt`;
-                document.body.appendChild(element);
-                element.click();
-                document.body.removeChild(element);
-              } else {
-                toast({
-                  title: "No transcript available",
-                  description: "This meeting doesn't have a transcript yet."
-                });
-              }
-            }}
-            disabled={!meeting.transcript}
-          >
-            <i className="ri-download-line mr-1"></i>
-            Download
-          </Button>
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={() => navigate(`/meeting/${id}/email`)}
-          >
-            <i className="ri-mail-line mr-1"></i>
-            Email
-          </Button>
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={() => navigate(`/meeting/${id}/edit`)}
-          >
-            <i className="ri-edit-line mr-1"></i>
-            Edit
+      </div>
+    );
+  }
+
+  if (isError || !meeting) {
+    return (
+      <div className="container mx-auto p-6">
+        <div className="flex flex-col items-center justify-center min-h-[400px] text-center">
+          <h1 className="text-2xl font-bold text-red-600 mb-4">404 Meeting Not Found</h1>
+          <p className="text-gray-600 mb-4">The meeting you're looking for doesn't exist or has been deleted.</p>
+          <Button onClick={() => navigate("/meetings")}>
+            Back to All Meetings
           </Button>
         </div>
       </div>
-      
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Main content - Transcript */}
-        <div className="lg:col-span-2">
-          {/* Audio player */}
-          {meeting.audioUrl && (
-            <div className="bg-white rounded-lg border border-neutral-200 p-4 mb-4 shadow-sm">
-              <div className="flex items-center mb-3">
-                <button 
-                  className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white mr-3"
-                  onClick={toggleAudioPlayback}
-                  aria-label={isPlaying ? "Pause audio" : "Play audio"}
-                >
-                  <i className={`${isPlaying ? "ri-pause-fill" : "ri-play-fill"} text-xl`}></i>
-                </button>
-                <div className="flex-1">
-                  <audio 
-                    ref={audioRef}
-                    src={meeting.audioUrl} 
-                    onTimeUpdate={() => audioRef.current && setCurrentTime(audioRef.current.currentTime)}
-                    onEnded={() => setIsPlaying(false)}
-                    onPause={() => setIsPlaying(false)}
-                    onPlay={() => setIsPlaying(true)}
-                    className="hidden"
-                  />
-                  <div className="h-2 bg-neutral-200 rounded-full overflow-hidden">
-                    {audioRef.current && (
-                      <div 
-                        className="h-full bg-primary rounded-full" 
-                        style={{ 
-                          width: `${(currentTime / audioRef.current.duration) * 100}%` 
-                        }}
-                      ></div>
-                    )}
-                  </div>
-                  <div className="flex justify-between mt-1">
-                    <span className="text-xs text-neutral-500">
-                      {formatDuration(Math.floor(currentTime))}
-                    </span>
-                    <span className="text-xs text-neutral-500">
-                      {formatDuration(meeting.duration)}
-                    </span>
-                  </div>
-                </div>
-                <div className="ml-3 flex items-center">
-                  <button 
-                    className="text-neutral-600 hover:text-neutral-800 p-1" 
-                    onClick={() => {
-                      if (audioRef.current) {
-                        const rates = [0.5, 0.75, 1, 1.25, 1.5, 2];
-                        const currentIndex = rates.indexOf(audioRef.current.playbackRate);
-                        const nextIndex = (currentIndex + 1) % rates.length;
-                        audioRef.current.playbackRate = rates[nextIndex];
-                      }
-                    }}
-                    aria-label="Change playback speed"
-                  >
-                    <span className="text-xs font-medium">
-                      {audioRef.current?.playbackRate || 1}x
-                    </span>
-                  </button>
-                  <button 
-                    className="text-neutral-600 hover:text-neutral-800 p-1" 
-                    onClick={() => {
-                      if (audioRef.current) {
-                        audioRef.current.muted = !audioRef.current.muted;
-                      }
-                    }}
-                    aria-label="Toggle mute"
-                  >
-                    <i className={`${audioRef.current?.muted ? "ri-volume-mute-line" : "ri-volume-up-line"}`}></i>
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-          
-          {/* Transcript content */}
-          <div className="bg-white rounded-lg border border-neutral-200 p-6 shadow-sm">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-semibold text-neutral-800">Transcript</h2>
-              <div className="flex space-x-2">
-                <Button 
-                  variant="ghost" 
-                  size="sm"
-                  onClick={() => navigate(`/meeting/${id}/edit`)}
-                >
-                  <i className="ri-edit-line mr-1"></i> Edit
-                </Button>
-                <Button 
-                  variant="ghost" 
-                  size="sm"
-                  onClick={() => {
-                    // Copy transcript to clipboard
-                    if (meeting.transcript) {
-                      navigator.clipboard.writeText(meeting.transcript)
-                        .then(() => {
-                          toast({
-                            title: "Copied to clipboard",
-                            description: "Transcript copied to clipboard successfully."
-                          });
-                        })
-                        .catch(() => {
-                          toast({
-                            title: "Copy failed",
-                            description: "Failed to copy transcript to clipboard.",
-                            variant: "destructive"
-                          });
-                        });
-                    } else {
-                      toast({
-                        title: "No transcript available",
-                        description: "This meeting doesn't have a transcript yet."
-                      });
-                    }
-                  }}
-                  disabled={!meeting.transcript}
-                >
-                  <i className="ri-file-copy-line mr-1"></i> Copy
-                </Button>
-              </div>
-            </div>
-            
-            <div className="transcript-text content-text text-neutral-700">
-              {meeting.transcript ? (
-                formatTranscriptForDisplay(meeting.transcript)
-              ) : (
-                <div className="p-4 bg-neutral-50 text-center text-neutral-500 rounded-md">
-                  No transcript available for this meeting yet.
-                </div>
-              )}
-            </div>
+    );
+  }
+
+  return (
+    <div className="container mx-auto p-6 space-y-6">
+      {/* Header */}
+      <div className="flex justify-between items-start">
+        <div>
+          <h1 className="text-3xl font-bold">{meeting.title}</h1>
+          <p className="text-gray-600 mt-2">
+            {format(parseISO(meeting.date), "PPpp")} • {formatDuration(meeting.duration)}
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            onClick={() => navigate(`/meetings/${meeting.id}/email`)}
+          >
+            Send Email
+          </Button>
+          <Button 
+            variant="destructive" 
+            onClick={deleteMeeting}
+          >
+            Delete Meeting
+          </Button>
+        </div>
+      </div>
+
+      {/* Tags */}
+      <div className="space-y-3">
+        <h3 className="text-lg font-semibold">Tags</h3>
+        <div className="flex flex-wrap gap-2">
+          {meeting.tags?.map((tag: string) => (
+            <Badge 
+              key={tag} 
+              variant="secondary" 
+              className="cursor-pointer hover:bg-red-100"
+              onClick={() => removeTag(tag)}
+            >
+              {tag} ×
+            </Badge>
+          ))}
+        </div>
+        <div className="flex gap-2">
+          <Input
+            placeholder="Add new tag"
+            value={newTag}
+            onChange={(e) => setNewTag(e.target.value)}
+            onKeyPress={(e) => e.key === "Enter" && handleAddTag()}
+            className="max-w-xs"
+          />
+          <Button onClick={handleAddTag}>Add Tag</Button>
+        </div>
+      </div>
+
+      {/* Audio Player */}
+      {meeting.audioUrl && (
+        <div className="space-y-3">
+          <h3 className="text-lg font-semibold">Audio Recording</h3>
+          <div className="bg-gray-50 p-4 rounded-lg">
+            <audio
+              ref={audioRef}
+              src={meeting.audioUrl}
+              onTimeUpdate={handleTimeUpdate}
+              onEnded={() => setIsPlaying(false)}
+              className="w-full"
+              controls
+            />
           </div>
         </div>
+      )}
+
+      {/* Participants */}
+      {meeting.participants && meeting.participants.length > 0 && (
+        <div className="space-y-3">
+          <h3 className="text-lg font-semibold">Participants</h3>
+          <div className="flex flex-wrap gap-2">
+            {meeting.participants.map((participant: any) => (
+              <Badge key={participant.id} variant={participant.isHost ? "default" : "outline"}>
+                {participant.name} {participant.isHost && "(Host)"}
+              </Badge>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Notes */}
+      {meeting.notes && (
+        <div className="space-y-3">
+          <h3 className="text-lg font-semibold">Notes</h3>
+          <div className="bg-gray-50 p-4 rounded-lg">
+            <p className="whitespace-pre-wrap">{meeting.notes}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Transcript */}
+      {meeting.transcript && (
+        <div className="space-y-3">
+          <h3 className="text-lg font-semibold">Transcript</h3>
+          <div className="bg-gray-50 p-4 rounded-lg max-h-96 overflow-y-auto">
+            <p className="whitespace-pre-wrap">{meeting.transcript}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Summary */}
+      {meeting.summary && (
+        <div className="space-y-3">
+          <h3 className="text-lg font-semibold">Summary</h3>
+          <div className="bg-blue-50 p-4 rounded-lg">
+            <p className="whitespace-pre-wrap">{meeting.summary}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Action Items */}
+      <div className="space-y-3">
+        <h3 className="text-lg font-semibold">Action Items</h3>
         
-        {/* Sidebar with summary and action items */}
-        <div className="lg:col-span-1">
-          {/* Summary */}
-          <div className="bg-white rounded-lg border border-neutral-200 p-4 mb-4 shadow-sm">
-            <h3 className="font-semibold text-neutral-800 mb-3">AI Summary</h3>
-            <div className="text-neutral-700 text-sm content-text mb-3">
-              {meeting.summary ? (
-                <p>{meeting.summary}</p>
-              ) : (
-                <p className="text-neutral-500">No summary available yet.</p>
-              )}
-            </div>
-            <div className="flex justify-end">
-              <Button 
-                variant="link" 
-                size="sm" 
-                className="h-auto p-0 text-primary text-xs"
-                onClick={() => regenerateSummaryMutation.mutate()}
-                disabled={!meeting.transcript || regenerateSummaryMutation.isPending}
+        {/* Existing Action Items */}
+        {meeting.actionItems && meeting.actionItems.length > 0 ? (
+          <div className="space-y-2">
+            {meeting.actionItems.map((item: ActionItem) => (
+              <div 
+                key={item.id} 
+                className={`p-3 rounded-lg border ${item.completed ? 'bg-green-50 border-green-200' : 'bg-white border-gray-200'}`}
               >
-                <i className="ri-refresh-line mr-1"></i> 
-                {regenerateSummaryMutation.isPending ? 'Regenerating...' : 'Regenerate'}
-              </Button>
-            </div>
-          </div>
-          
-          {/* Action Items */}
-          <div className="bg-white rounded-lg border border-neutral-200 p-4 mb-4 shadow-sm">
-            <div className="flex justify-between items-center mb-3">
-              <h3 className="font-semibold text-neutral-800">Action Items</h3>
-              <Button
-                variant="link"
-                size="sm"
-                className="h-auto p-0 text-primary text-xs"
-                onClick={() => {
-                  const dialog = document.getElementById('add-action-item-dialog') as HTMLDialogElement;
-                  if (dialog) dialog.showModal();
-                }}
-              >
-                <i className="ri-add-line mr-1"></i> Add
-              </Button>
-              
-              {/* Add Action Item Dialog */}
-              <dialog id="add-action-item-dialog" className="bg-white rounded-lg shadow-lg p-6 max-w-md mx-auto">
-                <form onSubmit={handleAddActionItem}>
-                  <h3 className="text-lg font-semibold mb-4">Add Action Item</h3>
-                  
-                  <div className="mb-4">
-                    <label className="block text-sm font-medium mb-1">Task</label>
-                    <Input
-                      value={newActionItem.text}
-                      onChange={e => setNewActionItem({...newActionItem, text: e.target.value})}
-                      placeholder="Enter task description"
-                      required
-                    />
-                  </div>
-                  
-                  <div className="mb-4">
-                    <label className="block text-sm font-medium mb-1">Assignee</label>
-                    <Input
-                      value={newActionItem.assignee}
-                      onChange={e => setNewActionItem({...newActionItem, assignee: e.target.value})}
-                      placeholder="Who is responsible for this task?"
-                    />
-                  </div>
-                  
-                  <div className="mb-4">
-                    <label className="block text-sm font-medium mb-1">Due Date</label>
-                    <Input
-                      type="date"
-                      value={newActionItem.dueDate}
-                      onChange={e => setNewActionItem({...newActionItem, dueDate: e.target.value})}
-                    />
-                  </div>
-                  
-                  <div className="flex justify-end gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => {
-                        const dialog = document.getElementById('add-action-item-dialog') as HTMLDialogElement;
-                        if (dialog) dialog.close();
-                      }}
-                    >
-                      Cancel
-                    </Button>
-                    <Button 
-                      type="submit"
-                      disabled={!newActionItem.text.trim() || addActionItemMutation.isPending}
-                    >
-                      {addActionItemMutation.isPending ? 'Adding...' : 'Add Action Item'}
-                    </Button>
-                  </div>
-                </form>
-              </dialog>
-            </div>
-            
-            {meeting.actionItems && meeting.actionItems.length > 0 ? (
-              <ul className="space-y-2 text-sm">
-                {meeting.actionItems.map((item: ActionItem) => (
-                  <li key={item.id} className="flex items-start">
-                    <div 
-                      className={`flex-shrink-0 w-5 h-5 rounded border cursor-pointer flex items-center justify-center mr-2 mt-0.5 ${
-                        item.completed 
-                          ? "border-primary text-white bg-primary" 
-                          : "border-neutral-300 text-white"
-                      }`}
-                      onClick={() => handleToggleActionItem(item.id, item.completed)}
-                    >
-                      {item.completed && <i className="ri-check-line text-xs"></i>}
-                    </div>
-                    <div>
-                      <p className={`text-neutral-800 ${item.completed ? "line-through text-neutral-500" : ""}`}>
-                        {item.text}
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <p className={`${item.completed ? 'line-through text-gray-500' : ''}`}>
+                      {item.text}
+                    </p>
+                    {item.assignee && (
+                      <p className="text-sm text-gray-600 mt-1">
+                        Assigned to: {item.assignee}
                       </p>
-                      {(item.assignee || item.dueDate) && (
-                        <div className="flex items-center mt-1 text-xs text-neutral-500">
-                          {item.dueDate && (
-                            <span className="mr-2">Due: {format(new Date(item.dueDate), "MMM d")}</span>
-                          )}
-                          {item.assignee && (
-                            <span>Assigned to: {item.assignee}</span>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-neutral-500 text-sm py-2">No action items yet.</p>
-            )}
+                    )}
+                    {item.dueDate && (
+                      <p className="text-sm text-gray-600 mt-1">
+                        Due: {format(parseISO(item.dueDate), "PPP")}
+                      </p>
+                    )}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => toggleActionItem(item.id)}
+                  >
+                    {item.completed ? "Undo" : "Complete"}
+                  </Button>
+                </div>
+              </div>
+            ))}
           </div>
-          
-          {/* Tags */}
-          <div className="bg-white rounded-lg border border-neutral-200 p-4 mb-4 shadow-sm">
-            <h3 className="font-semibold text-neutral-800 mb-3">Tags</h3>
-            <div className="flex flex-wrap gap-2 mb-3">
-              {meeting.tags && meeting.tags.length > 0 ? (
-                meeting.tags.map(tag => (
-                  <Badge key={tag} variant="secondary" className="bg-primary/10 text-primary">
-                    {tag}
-                  </Badge>
-                ))
-              ) : (
-                <p className="text-neutral-500 text-sm">No tags yet.</p>
-              )}
-            </div>
-            <form className="flex mt-3" onSubmit={handleAddTag}>
+        ) : (
+          <p className="text-gray-500">No action items yet.</p>
+        )}
+
+        {/* Add New Action Item */}
+        <div className="bg-gray-50 p-4 rounded-lg space-y-3">
+          <h4 className="font-medium">Add New Action Item</h4>
+          <div className="space-y-2">
+            <Input
+              placeholder="Action item description"
+              value={newActionItem.text}
+              onChange={(e) => setNewActionItem({...newActionItem, text: e.target.value})}
+            />
+            <div className="flex gap-2">
               <Input
-                value={newTag}
-                onChange={e => setNewTag(e.target.value)}
-                placeholder="Add a tag"
-                className="rounded-r-none"
+                placeholder="Assignee (optional)"
+                value={newActionItem.assignee}
+                onChange={(e) => setNewActionItem({...newActionItem, assignee: e.target.value})}
+                className="flex-1"
               />
-              <Button 
-                type="submit" 
-                className="rounded-l-none"
-                disabled={!newTag.trim() || addTagMutation.isPending}
-              >
-                Add
-              </Button>
-            </form>
-          </div>
-          
-          {/* Participants */}
-          {meeting.participants && meeting.participants.length > 0 && (
-            <div className="bg-white rounded-lg border border-neutral-200 p-4 shadow-sm">
-              <h3 className="font-semibold text-neutral-800 mb-3">Participants</h3>
-              <ul className="space-y-2">
-                {meeting.participants.map(participant => {
-                  const isHost = participant.isHost;
-                  
-                  return (
-                    <li key={participant.id} className="flex items-center">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center mr-3 ${
-                        isHost 
-                          ? "bg-primary/10 text-primary" 
-                          : "bg-secondary/10 text-secondary"
-                      }`}>
-                        {participant.name.charAt(0).toUpperCase()}
-                      </div>
-                      <span className="text-neutral-800">
-                        {participant.name} {isHost && "(Host)"}
-                      </span>
-                    </li>
-                  );
-                })}
-              </ul>
+              <Input
+                type="date"
+                placeholder="Due date (optional)"
+                value={newActionItem.dueDate}
+                onChange={(e) => setNewActionItem({...newActionItem, dueDate: e.target.value})}
+                className="flex-1"
+              />
             </div>
-          )}
+            <Button onClick={handleAddActionItem}>Add Action Item</Button>
+          </div>
         </div>
       </div>
     </div>
