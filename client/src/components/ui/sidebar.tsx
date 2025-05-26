@@ -9,10 +9,10 @@ export function Sidebar({ className }: SidebarProps) {
   const [location] = useLocation();
 
   const navItems = [
-    { href: "/", icon: "ri-dashboard-line", label: "Dashboard" },
-    { href: "/record", icon: "ri-mic-line", label: "Record Meeting" },
-    { href: "/meetings", icon: "ri-file-list-3-line", label: "All Meetings" },
-    { href: "/templates", icon: "ri-file-text-line", label: "Email Templates" },
+    { href: "/", icon: "ri-dashboard-line", label: "대시보드" },
+    { href: "/record", icon: "ri-mic-line", label: "회의 녹음" },
+    { href: "/meetings", icon: "ri-file-list-3-line", label: "모든 회의" },
+    { href: "/templates", icon: "ri-file-text-line", label: "이메일 템플릿" },
   ];
 
   return (
