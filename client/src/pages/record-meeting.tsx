@@ -571,12 +571,12 @@ export default function RecordMeeting() {
       // Create meeting first if it doesn't exist
       if (!meetingId) {
         try {
-          const meeting = await apiRequest("POST", "/api/meetings", {
+          const response = await apiRequest("POST", "/api/meetings", {
             title: title || "Untitled Meeting",
-            tags,
-            notes
+            tags: tags,
+            notes: notes || "",
+            duration: 0
           });
-          const response = await meeting.json();
           setMeetingId(response.id);
         } catch (error: any) {
           toast({
