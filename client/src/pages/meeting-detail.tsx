@@ -8,8 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useState, useRef } from "react";
-import { apiRequest } from "@/lib/queryClient";
-import { queryClient } from "@/lib/queryClient";
+import { useIndexedDBMeetings } from "@/hooks/use-indexeddb";
+import { indexedDBStorage } from "@/lib/indexeddb";
 
 export default function MeetingDetail() {
   const { id } = useParams<{ id: string }>();
@@ -26,14 +26,22 @@ export default function MeetingDetail() {
   
   const audioRef = useRef<HTMLAudioElement>(null);
   
-  // Fetch meeting data
+  // Fetch meeting data from IndexedDB
   const { 
     data: meeting, 
     isLoading, 
     isError, 
     error 
   } = useQuery<Meeting>({
-    queryKey: [`/api/meetings/${id}`],
+    queryKey: [`indexeddb-meeting-${id}`],
+    queryFn: async () => {
+      if (!id) throw new Error("No meeting ID provided");
+      await indexedDBStorage.init();
+      const meetingData = await indexedDBStorage.getMeeting(parseInt(id));
+      if (!meetingData) throw new Error("Meeting not found");
+      return meetingData;
+    },
+    enabled: !!id,
   });
   
   // Add tag mutation
