@@ -85,11 +85,9 @@ export default function Dashboard() {
           </p>
         </div>
         <div className="mt-4 md:mt-0">
-          <Link href="/record">
-            <a className="bg-primary text-white px-4 py-2 rounded-md flex items-center shadow-sm hover:bg-primary/90 transition-colors">
-              <i className="ri-mic-line mr-2"></i>
-              <span>New Recording</span>
-            </a>
+          <Link href="/record" className="bg-primary text-white px-4 py-2 rounded-md flex items-center shadow-sm hover:bg-primary/90 transition-colors">
+            <i className="ri-mic-line mr-2"></i>
+            <span>New Recording</span>
           </Link>
         </div>
       </div>
@@ -137,11 +135,9 @@ export default function Dashboard() {
       <div className="mb-8">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-neutral-800">Recent Meetings</h2>
-          <Link href="/meetings">
-            <a className="text-primary text-sm flex items-center hover:underline">
-              View all
-              <i className="ri-arrow-right-line ml-1"></i>
-            </a>
+          <Link href="/meetings" className="text-primary text-sm flex items-center hover:underline">
+            View all
+            <i className="ri-arrow-right-line ml-1"></i>
           </Link>
         </div>
         
