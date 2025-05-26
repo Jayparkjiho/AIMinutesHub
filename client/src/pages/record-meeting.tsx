@@ -592,7 +592,11 @@ export default function RecordMeeting() {
   
   // Handle save recording
   const handleSaveRecording = async () => {
-    if (!audioBlob || !meetingId) return;
+    console.log("Process Recording clicked! audioBlob:", audioBlob, "meetingId:", meetingId);
+    if (!audioBlob || !meetingId) {
+      console.log("Missing audioBlob or meetingId");
+      return;
+    }
     
     try {
       setIsProcessing(true);
