@@ -148,10 +148,10 @@ export default function EmailSender() {
       });
 
       navigate(`/meeting/${id}`);
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: "이메일 발송 실패",
-        description: error.message,
+        description: error.message || "알 수 없는 오류가 발생했습니다.",
         variant: "destructive"
       });
     } finally {

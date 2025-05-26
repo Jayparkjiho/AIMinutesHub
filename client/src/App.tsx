@@ -8,6 +8,7 @@ import Dashboard from "@/pages/dashboard";
 import RecordMeeting from "@/pages/record-meeting";
 import MeetingDetail from "@/pages/meeting-detail";
 import AllMeetings from "@/pages/all-meetings";
+import EmailSender from "@/pages/email-sender";
 import { Sidebar } from "@/components/ui/sidebar";
 import { MobileHeader } from "@/components/MobileHeader";
 import { useEffect } from "react";
@@ -18,6 +19,7 @@ function Router() {
       <Route path="/" component={Dashboard} />
       <Route path="/record" component={RecordMeeting} />
       <Route path="/meeting/:id" component={MeetingDetail} />
+      <Route path="/meeting/:id/email" component={EmailSender} />
       <Route path="/meetings" component={AllMeetings} />
       {/* Fallback to 404 */}
       <Route component={NotFound} />

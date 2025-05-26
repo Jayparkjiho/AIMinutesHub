@@ -299,16 +299,10 @@ export default function MeetingDetail() {
           <Button 
             variant="outline" 
             size="sm"
-            onClick={() => {
-              // Share functionality would be implemented here
-              toast({
-                title: "Share feature",
-                description: "Sharing functionality is not implemented yet."
-              });
-            }}
+            onClick={() => navigate(`/meeting/${id}/email`)}
           >
-            <i className="ri-share-line mr-1"></i>
-            Share
+            <i className="ri-mail-line mr-1"></i>
+            Email
           </Button>
           <Button 
             variant="outline" 

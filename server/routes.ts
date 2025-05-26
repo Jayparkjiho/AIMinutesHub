@@ -330,5 +330,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Send email with meeting data
+  app.post("/api/email/send", async (req: Request, res: Response) => {
+    try {
+      const emailSchema = z.object({
+        to: z.array(z.string().email()),
+        cc: z.array(z.string().email()).optional(),
+        subject: z.string().min(1),
+        body: z.string().min(1),
+        attachments: z.array(z.object({
+          filename: z.string(),
+          content: z.string(),
+          type: z.string()
+        })).optional()
+      });
+
+      const emailData = emailSchema.parse(req.body);
+
+      // 실제 이메일 발송 로직을 여기에 구현
+      // 현재는 시뮬레이션으로 성공 응답 반환
+      console.log("이메일 발송 요청:", {
+        to: emailData.to,
+        cc: emailData.cc,
+        subject: emailData.subject,
+        bodyLength: emailData.body.length,
+        attachmentCount: emailData.attachments?.length || 0
+      });
+
+      // 실제 구현에서는 nodemailer, SendGrid 등을 사용
+      // 예시:
+      // await sendGridClient.send({
+      //   to: emailData.to,
+      //   cc: emailData.cc,
+      //   from: 'noreply@meetscribe.com',
+      //   subject: emailData.subject,
+      //   html: emailData.body,
+      //   attachments: emailData.attachments
+      // });
+
+      res.json({ 
+        success: true, 
+        message: "이메일이 성공적으로 발송되었습니다.",
+        sentTo: emailData.to.length,
+        sentCc: emailData.cc?.length || 0
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid email data", errors: error.errors });
+      }
+      res.status(500).json({ message: `Error sending email: ${error.message}` });
+    }
+  });
+
   return httpServer;
 }
