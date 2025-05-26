@@ -4,15 +4,22 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { formatDuration } from "@/hooks/use-audio-recorder";
 import { useLocation } from "wouter";
+import { useIndexedDBMeetings } from "@/hooks/use-indexeddb";
+import { useToast } from "@/hooks/use-toast";
+import { useState } from "react";
 
 interface MeetingDetailModalProps {
   meeting: Meeting | null;
   isOpen: boolean;
   onClose: () => void;
+  onDeleteSuccess?: () => void;
 }
 
-export function MeetingDetailModal({ meeting, isOpen, onClose }: MeetingDetailModalProps) {
+export function MeetingDetailModal({ meeting, isOpen, onClose, onDeleteSuccess }: MeetingDetailModalProps) {
   const [, navigate] = useLocation();
+  const { deleteMeeting } = useIndexedDBMeetings();
+  const { toast } = useToast();
+  const [isDeleting, setIsDeleting] = useState(false);
   
   if (!meeting) return null;
 
@@ -21,6 +28,35 @@ export function MeetingDetailModal({ meeting, isOpen, onClose }: MeetingDetailMo
     const meetingData = encodeURIComponent(JSON.stringify(meeting));
     navigate(`/email-sender?meetingData=${meetingData}`);
     onClose();
+  };
+
+  const handleDelete = async () => {
+    if (!window.confirm(`정말로 "${meeting.title}" 회의를 삭제하시겠습니까?`)) {
+      return;
+    }
+    
+    setIsDeleting(true);
+    
+    try {
+      await deleteMeeting(meeting.id);
+      toast({
+        title: "회의 삭제 완료",
+        description: `"${meeting.title}" 회의가 삭제되었습니다.`,
+      });
+      
+      onClose();
+      if (onDeleteSuccess) {
+        onDeleteSuccess();
+      }
+    } catch (error: any) {
+      toast({
+        title: "삭제 오류",
+        description: error?.message || "회의 삭제 중 오류가 발생했습니다.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   return (
@@ -171,12 +207,11 @@ export function MeetingDetailModal({ meeting, isOpen, onClose }: MeetingDetailMo
         <div className="flex justify-between items-center p-6 pt-4 border-t">
           <Button 
             variant="destructive" 
-            onClick={() => {
-              console.log('Delete meeting:', meeting.id);
-            }}
+            onClick={handleDelete}
+            disabled={isDeleting}
           >
             <i className="ri-delete-bin-line mr-2"></i>
-            삭제
+            {isDeleting ? "삭제 중..." : "삭제"}
           </Button>
           
           <Button onClick={handleEmailSend}>
