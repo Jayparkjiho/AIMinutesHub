@@ -61,11 +61,11 @@ export async function generateSummary(transcript: string): Promise<string> {
       messages: [
         {
           role: "system",
-          content: "You are a meeting assistant that creates concise, accurate summaries of meeting transcripts. Focus on key points, decisions, and action items. Be professional and objective."
+          content: "회의 내용을 요약해주세요. 주요 논의 사항, 결론, 중요한 포인트를 포함하여 간결하고 명확하게 요약하세요. 원문의 언어로 응답하세요 - 한국어면 한국어로, 영어면 영어로, 일본어면 일본어로 요약해주세요."
         },
         {
           role: "user",
-          content: `Please summarize the following meeting transcript in a paragraph or two:\n\n${transcript}`
+          content: `다음 회의 전사 내용을 요약해주세요:\n\n${transcript}`
         }
       ],
     });

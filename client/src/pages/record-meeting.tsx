@@ -408,47 +408,47 @@ export default function RecordMeeting() {
   };
 
   // Apply AI action items to new action items
-  const applyAIActionItems = () => {
+  const applyAIActionItems = async () => {
     if (generatedActionItems.length === 0) return;
     
     // Add AI generated action items to the meeting
     if (meetingId) {
-      generatedActionItems.forEach(async (aiItem) => {
-        const newActionItem = {
-          text: aiItem.text,
-          assignee: aiItem.assignee || "",
-          dueDate: aiItem.dueDate || ""
-        };
+      try {
+        await indexedDBStorage.init();
+        const existingMeeting = await indexedDBStorage.getMeeting(meetingId);
         
-        try {
-          await indexedDBStorage.init();
-          const existingMeeting = await indexedDBStorage.getMeeting(meetingId);
+        if (existingMeeting) {
+          const newActionItems = generatedActionItems.map((aiItem) => ({
+            id: `action_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            text: aiItem.text,
+            completed: false,
+            assignee: aiItem.assignee || undefined,
+            dueDate: aiItem.dueDate || undefined,
+          }));
           
-          if (existingMeeting) {
-            const newActionItemWithId = {
-              id: `action_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-              text: newActionItem.text,
-              completed: false,
-              assignee: newActionItem.assignee || undefined,
-              dueDate: newActionItem.dueDate || undefined,
-            };
-            
-            const updatedMeeting = {
-              ...existingMeeting,
-              actionItems: [...(existingMeeting.actionItems || []), newActionItemWithId]
-            };
-            
-            await indexedDBStorage.updateMeeting(meetingId, updatedMeeting);
-          }
-        } catch (error) {
-          console.error("Error applying AI action item:", error);
+          const updatedMeeting = {
+            ...existingMeeting,
+            actionItems: [...(existingMeeting.actionItems || []), ...newActionItems]
+          };
+          
+          await indexedDBStorage.updateMeeting(meetingId, updatedMeeting);
+          
+          toast({
+            title: "AI 액션 아이템 적용",
+            description: `${generatedActionItems.length}개의 AI 액션 아이템이 회의에 추가되었습니다.`,
+          });
+          
+          // Clear the generated action items after applying
+          setGeneratedActionItems([]);
         }
-      });
-      
-      toast({
-        title: "AI 액션 아이템 적용",
-        description: `${generatedActionItems.length}개의 AI 액션 아이템이 회의에 추가되었습니다.`,
-      });
+      } catch (error) {
+        console.error("Error applying AI action items:", error);
+        toast({
+          title: "오류",
+          description: "AI 액션 아이템 적용 중 오류가 발생했습니다.",
+          variant: "destructive"
+        });
+      }
     }
   };
 
