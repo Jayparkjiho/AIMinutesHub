@@ -46,7 +46,36 @@ export class EmailService {
   // 10개의 다양한 이메일 템플릿
   static getDefaultTemplates(): EmailTemplate[] {
     return [
-      // 1. 기본 회의록 요약
+      // 1. AI 분석 회의록 (OpenAI 요약 포함)
+      {
+        name: 'AI 분석 회의록',
+        type: 'summary',
+        subject: '[AI 분석] {{meeting_title}} - 스마트 회의록',
+        body: `안녕하세요,
+
+{{meeting_title}} 회의를 AI가 분석한 결과를 공유드립니다.
+
+📅 회의 정보
+• 날짜: {{meeting_date}}
+• 소요시간: {{meeting_duration}}
+• 참석자: {{meeting_participants}}
+
+🤖 AI 요약
+{{meeting_summary}}
+
+✅ AI 추출 액션 아이템
+{{action_items}}
+
+📝 전체 대화 내용 (화자 분리)
+{{meeting_transcript}}
+
+AI가 분석한 내용이므로 중요한 사항은 다시 한번 확인해주세요.
+
+감사합니다.`,
+        variables: ['meeting_title', 'meeting_date', 'meeting_duration', 'meeting_participants', 'meeting_summary', 'action_items', 'meeting_transcript']
+      },
+
+      // 2. 기본 회의록 요약
       {
         name: '회의록 요약',
         type: 'summary',
