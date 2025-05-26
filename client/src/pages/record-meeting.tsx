@@ -851,9 +851,9 @@ export default function RecordMeeting() {
                   전사 내용
                 </h4>
                 <div className="bg-gray-50 p-4 rounded-lg max-h-32 overflow-y-auto">
-                  <p className="text-sm whitespace-pre-wrap">{transcriptText}</p>
+                  <p className="text-sm whitespace-pre-wrap">{separatedTranscript || transcriptText}</p>
                 </div>
-                <div className="mt-2">
+                <div className="mt-2 flex gap-2 flex-wrap">
                   <Button 
                     variant="outline" 
                     size="sm"
@@ -862,6 +862,19 @@ export default function RecordMeeting() {
                   >
                     <i className="ri-refresh-line mr-2"></i>
                     AI 분석 다시 실행
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => separateSpeakers(transcriptText)}
+                    disabled={isSeparatingSpeakers || !transcriptText}
+                  >
+                    {isSeparatingSpeakers ? (
+                      <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-primary mr-2"></div>
+                    ) : (
+                      <i className="ri-user-voice-line mr-2"></i>
+                    )}
+                    화자 분리
                   </Button>
                 </div>
               </div>
@@ -910,6 +923,18 @@ export default function RecordMeeting() {
                       </div>
                     </div>
                   ))}
+                </div>
+                <div className="mt-3">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={applyAIActionItems}
+                    disabled={!meetingId}
+                    className="bg-green-50 border-green-200 hover:bg-green-100"
+                  >
+                    <i className="ri-add-line mr-2"></i>
+                    액션 아이템을 회의에 추가
+                  </Button>
                 </div>
               </div>
             )}
