@@ -377,6 +377,7 @@ export default function RecordMeeting() {
 
       setIsProcessing(false);
       setProcessingProgress(0);
+      setUploadedFile(null); // 파일 상태 초기화
 
     } catch (error: any) {
       console.error("파일 처리 오류:", error);
@@ -436,7 +437,7 @@ export default function RecordMeeting() {
         notes: notes || "",
         transcript: analysisResult.separatedTranscript || analysisResult.transcript,
         summary: analysisResult.summary,
-        emailTemplate: analysisResult.emailTemplate,
+        emailTemplate: template.name,
         actionItems: analysisResult.actionItems || []
       };
 
@@ -450,10 +451,9 @@ export default function RecordMeeting() {
         description: `템플릿 "${template.name}"에 맞춰 회의가 성공적으로 분석되었습니다.`,
       });
 
-      // 대시보드로 이동
-      setTimeout(() => {
-        setLocation('/');
-      }, 1000);
+      // Gmail Sender 페이지로 이동
+      const meetingDataParam = encodeURIComponent(JSON.stringify(savedMeeting));
+      setLocation(`/gmail-sender?meetingData=${meetingDataParam}`);
 
     } catch (error: any) {
       console.error("텍스트 분석 오류:", error);
@@ -720,7 +720,7 @@ export default function RecordMeeting() {
                       className="w-full mt-4"
                     >
                       <i className="ri-play-line mr-2"></i>
-                      파일 처리하기
+                      텍스트로 변환하기
                     </Button>
                   </div>
                 )}
@@ -739,52 +739,32 @@ export default function RecordMeeting() {
 
             {/* 텍스트 입력 탭 */}
             <TabsContent value="text" className="mt-6">
-              <div className="space-y-4">
-                <div>
-                  <label htmlFor="manualText" className="block text-sm font-medium text-neutral-700 mb-2">
+              <div className="bg-neutral-50 rounded-lg p-6">
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-neutral-700 mb-2">
                     회의 내용
                   </label>
                   <Textarea
-                    id="manualText"
                     value={manualText}
-                    onChange={e => setManualText(e.target.value)}
-                    placeholder="회의 전사, 노트, 또는 토론 내용을 여기에 입력하세요..."
-                    rows={12}
-                    className="w-full"
+                    onChange={(e) => setManualText(e.target.value)}
+                    placeholder="회의 내용을 입력하거나, 오디오 파일을 업로드하여 자동으로 변환된 텍스트를 확인하세요."
+                    className="min-h-[200px] mb-2"
                   />
-                  <p className="text-sm text-neutral-500 mt-1">
-                    회의 전사본을 붙여넣거나 토론 내용을 직접 입력하세요
+                  <p className="text-sm text-neutral-500">
+                    {manualText ? `${manualText.split(/\s+/).filter(Boolean).length}개의 단어` : ''}
                   </p>
                 </div>
 
-                {manualText && (
-                  <div className="flex space-x-2">
-                    <Button 
-                      onClick={showTemplateSelection} 
-                      disabled={isProcessing || !manualText.trim()}
-                      className="flex-1"
+                {manualText.trim() && (
+                  <div className="flex justify-end">
+                    <Button
+                      onClick={() => showTemplateSelection()}
+                      disabled={isProcessing}
+                      className="w-full md:w-auto"
                     >
-                      <i className="ri-brain-line mr-2"></i>
-                      내용 분석하기
+                      <i className="ri-robot-line mr-2"></i>
+                      AI 분석 시작하기
                     </Button>
-                    <Button 
-                      onClick={downloadTranscript} 
-                      variant="outline"
-                      disabled={!manualText.trim()}
-                    >
-                      <i className="ri-download-line mr-2"></i>
-                      다운로드
-                    </Button>
-                  </div>
-                )}
-
-                {isProcessing && (
-                  <div className="mt-4">
-                    <div className="flex items-center justify-center mb-2">
-                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary mr-2"></div>
-                      <span className="text-neutral-600">내용 처리 중...</span>
-                    </div>
-                    <Progress value={processingProgress} className="mb-4 h-2" />
                   </div>
                 )}
               </div>
